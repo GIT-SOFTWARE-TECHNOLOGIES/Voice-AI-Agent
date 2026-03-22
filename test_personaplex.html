@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PersonaPlex Voice Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.js"></script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0d0d0d;
+        color: #e8e8e8;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 20px;
+      }
+
+      h1 {
+        font-size: 22px;
+        font-weight: 500;
+        color: #ffffff;
+        margin-bottom: 6px;
+        letter-spacing: -0.3px;
+      }
+
+      .subtitle {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 36px;
+      }
+
+      .card {
+        background: #161616;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        max-width: 520px;
+        margin-bottom: 16px;
+      }
+
+      .card-title {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #555;
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 6px;
+        margin-top: 14px;
+      }
+      label:first-of-type { margin-top: 0; }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 10px 12px;
+        background: #0d0d0d;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        color: #e8e8e8;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus { border-color: #444; }
+
+      /* Status pill */
+      #status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        background: #1e1e1e;
+        border: 1px solid #2a2a2a;
+        color: #888;
+        margin-bottom: 20px;
+        transition: all 0.2s;
+      }
+      #status-pill.connected    { background: #0d2b1a; border-color: #1a5c35; color: #34d47a; }
+      #status-pill.connecting   { background: #1c1a09; border-color: #4a3d00; color: #d4b034; }
+      #status-pill.error        { background: #2b0d0d; border-color: #5c1a1a; color: #d43434; }
+
+      #status-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #444;
+        transition: background 0.2s;
+      }
+      .connected  #status-dot  { background: #34d47a; animation: pulse-green 1.5s infinite; }
+      .connecting #status-dot  { background: #d4b034; animation: pulse-amber 1s infinite; }
+      .error      #status-dot  { background: #d43434; }
+
+      @keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      @keyframes pulse-amber { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+      /* Visualizer */
+      #viz-wrap {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 3px;
+        height: 48px;
+        margin: 20px 0;
+      }
+      .viz-bar {
+        width: 4px;
+        background: #2a2a2a;
+        border-radius: 2px;
+        transition: height 0.05s ease, background 0.2s;
+        min-height: 4px;
+      }
+      .viz-bar.mic-active   { background: #4a9eff; }
+      .viz-bar.agent-active { background: #34d47a; }
+
+      /* Buttons */
+      .btn-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+      }
+      button:hover:not(:disabled) { opacity: 0.85; transform: scale(1.01); }
+      button:active:not(:disabled) { transform: scale(0.99); }
+      button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      #btn-token    { background: #3a3a3a; color: #e8e8e8; }
+      #btn-connect  { background: #4a9eff; color: #fff; }
+      #btn-disconnect { background: #c0392b; color: #fff; display: none; }
+
+      /* Mic toggle */
+      #btn-mic {
+        flex: none;
+        width: 48px;
+        background: #2a2a2a;
+        color: #e8e8e8;
+        font-size: 18px;
+        padding: 0;
+        display: none;
+      }
+      #btn-mic.muted { background: #c0392b; }
+
+      /* Log */
+      #log {
+        background: #0a0a0a;
+        border: 1px solid #1e1e1e;
+        border-radius: 8px;
+        padding: 12px;
+        height: 180px;
+        overflow-y: auto;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 11px;
+        line-height: 1.7;
+      }
+      .log-line { color: #555; }
+      .log-line.info    { color: #888; }
+      .log-line.success { color: #34d47a; }
+      .log-line.warn    { color: #d4b034; }
+      .log-line.error   { color: #d43434; }
+
+      /* Transcript */
+      #transcript {
+        min-height: 60px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #aaa;
+        font-style: italic;
+      }
+      #transcript:empty::before {
+        content: "PersonaPlex inner monologue will appear here...";
+        color: #333;
+      }
+
+      /* Level meter */
+      .level-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+        font-size: 12px;
+        color: #555;
+      }
+      .level-bar-wrap {
+        flex: 1;
+        height: 4px;
+        background: #1e1e1e;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .level-bar {
+        height: 100%;
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.05s;
+      }
+      #mic-level-bar   { background: #4a9eff; }
+      #agent-level-bar { background: #34d47a; }
+    </style>
+  </head>
+  <body>
+
+    <h1>PersonaPlex Voice Test</h1>
+    <p class="subtitle">Audio In → PersonaPlex on RunPod → Audio Out</p>
+
+    <!-- Status -->
+    <div id="status-pill">
+      <span id="status-dot"></span>
+      <span id="status-text">Disconnected</span>
+    </div>
+
+    <!-- Config card -->
+    <div class="card">
+      <div class="card-title">Connection</div>
+
+      <label>Token API URL</label>
+      <input type="text" id="token-api-url" value="http://localhost:8080/api/token" />
+
+      <label>LiveKit Server URL</label>
+      <input type="text" id="server-url" value="ws://localhost:7880" />
+
+      <label>Room Name</label>
+      <input type="text" id="room-name" value="personaplex-test" />
+
+      <label>Access Token <span id="token-status" style="color:#444;font-weight:400"></span></label>
+      <input type="text" id="token" placeholder="Click 'Get Token' or paste manually..." />
+
+      <div class="btn-row">
+        <button id="btn-token"      onclick="getToken()">Get Token</button>
+        <button id="btn-connect"    onclick="connect()">Connect</button>
+        <button id="btn-disconnect" onclick="disconnect()">Disconnect</button>
+        <button id="btn-mic"        onclick="toggleMic()">🎤</button>
+      </div>
+    </div>
+
+    <!-- Visualizer card -->
+    <div class="card">
+      <div class="card-title">Audio</div>
+
+      <div id="viz-wrap">
+        <!-- 20 bars generated by JS -->
+      </div>
+
+      <div class="level-row">
+        <span style="width:80px">Your mic</span>
+        <div class="level-bar-wrap"><div class="level-bar" id="mic-level-bar"></div></div>
+        <span id="mic-level-num" style="width:28px;text-align:right">0</span>
+      </div>
+      <div class="level-row">
+        <span style="width:80px">PersonaPlex</span>
+        <div class="level-bar-wrap"><div class="level-bar" id="agent-level-bar"></div></div>
+        <span id="agent-level-num" style="width:28px;text-align:right">0</span>
+      </div>
+    </div>
+
+    <!-- Transcript card -->
+    <div class="card">
+      <div class="card-title">PersonaPlex Inner Monologue</div>
+      <div id="transcript"></div>
+    </div>
+
+    <!-- Log card -->
+    <div class="card">
+      <div class="card-title">Log</div>
+      <div id="log"></div>
+    </div>
+
+    <script>
+      // ── State ─────────────────────────────────────────────────────────────
+      let room        = null;
+      let micEnabled  = true;
+      let micAnalyser = null;
+      let agentAnalyser = null;
+      let animFrame   = null;
+
+      const BAR_COUNT = 20;
+
+      // ── Build visualizer bars ─────────────────────────────────────────────
+      const vizWrap = document.getElementById("viz-wrap");
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const bar = document.createElement("div");
+        bar.className = "viz-bar";
+        bar.id = `bar-${i}`;
+        bar.style.height = "4px";
+        vizWrap.appendChild(bar);
+      }
+
+      // ── Logging ───────────────────────────────────────────────────────────
+      function log(msg, type = "info") {
+        const el  = document.getElementById("log");
+        const div = document.createElement("div");
+        div.className = `log-line ${type}`;
+        div.textContent = `${new Date().toLocaleTimeString("en-GB", { hour12: false })}  ${msg}`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      // ── Status pill ───────────────────────────────────────────────────────
+      function setStatus(text, state) {
+        const pill = document.getElementById("status-pill");
+        pill.className = state || "";
+        document.getElementById("status-text").textContent = text;
+      }
+
+      // ── Inner monologue transcript ─────────────────────────────────────────
+      function appendTranscript(text) {
+        const el = document.getElementById("transcript");
+        el.textContent += (el.textContent ? " " : "") + text;
+        el.scrollTop = el.scrollHeight;
+      }
+
+      // ── Token ─────────────────────────────────────────────────────────────
+      async function getToken() {
+        const apiUrl   = document.getElementById("token-api-url").value.trim();
+        const roomName = document.getElementById("room-name").value.trim();
+        const statusEl = document.getElementById("token-status");
+
+        if (!apiUrl) { log("Enter a Token API URL first", "error"); return; }
+
+        const btn = document.getElementById("btn-token");
+        btn.disabled = true;
+        btn.textContent = "Fetching...";
+        statusEl.textContent = "(fetching...)";
+        statusEl.style.color = "#d4b034";
+
+        try {
+          const url = new URL(apiUrl);
+          url.searchParams.set("room", roomName);
+          const res  = await fetch(url.toString());
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          document.getElementById("token").value      = data.token;
+          document.getElementById("server-url").value = data.url;
+
+          statusEl.textContent = `(${data.identity})`;
+          statusEl.style.color = "#34d47a";
+          log(`Token issued for ${data.identity} → room "${data.room}"`, "success");
+        } catch (e) {
+          log(`Token fetch failed: ${e.message}`, "error");
+          statusEl.textContent = "(failed)";
+          statusEl.style.color = "#d43434";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Get Token";
+        }
+      }
+
+      // ── Connect ───────────────────────────────────────────────────────────
+      async function connect() {
+        const serverUrl = document.getElementById("server-url").value.trim();
+        const token     = document.getElementById("token").value.trim();
+
+        if (!token) { log("Get a token first", "error"); return; }
+
+        setStatus("Connecting...", "connecting");
+        log("Connecting to LiveKit...");
+
+        try {
+          room = new LivekitClient.Room({
+            adaptiveStream: true,
+            dynacast: true,
+          });
+
+          // ── Room events ──────────────────────────────────────────────────
+          room.on(LivekitClient.RoomEvent.Connected, () => {
+            setStatus("Connected — speak now", "connected");
+            log("LiveKit room connected", "success");
+            document.getElementById("btn-connect").style.display    = "none";
+            document.getElementById("btn-disconnect").style.display = "";
+            document.getElementById("btn-mic").style.display        = "";
+            startVisualizerLoop();
+          });
+
+          room.on(LivekitClient.RoomEvent.Disconnected, () => {
+            setStatus("Disconnected", "");
+            log("Disconnected from room");
+            document.getElementById("btn-connect").style.display    = "";
+            document.getElementById("btn-disconnect").style.display = "none";
+            document.getElementById("btn-mic").style.display        = "none";
+            stopVisualizerLoop();
+          });
+
+          room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+            log(`Participant joined: ${p.identity}`, "success");
+          });
+
+          // ── PersonaPlex audio arriving ────────────────────────────────────
+          room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+            log(`Track subscribed: ${track.kind} from ${participant.identity}`);
+
+            if (track.kind === "audio") {
+              // Attach audio element so we hear PersonaPlex
+              const audioEl = track.attach();
+              audioEl.autoplay = true;
+              document.body.appendChild(audioEl);
+              log("PersonaPlex audio attached — you should hear it!", "success");
+
+              // Wire up analyser for the level meter
+              try {
+                const ctx    = new AudioContext();
+                const src    = ctx.createMediaStreamSource(new MediaStream([audioEl.srcObject?.getAudioTracks?.()?.[0]].filter(Boolean)));
+                agentAnalyser = ctx.createAnalyser();
+                agentAnalyser.fftSize = 64;
+                src.connect(agentAnalyser);
+              } catch (_) {
+                // Agent level meter is optional
+              }
+            }
+          });
+
+          // ── Data messages (inner monologue from bridge) ───────────────────
+          room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+            try {
+              const text = new TextDecoder().decode(payload);
+              if (text.trim()) {
+                log(`🧠 PersonaPlex: ${text}`, "info");
+                appendTranscript(text);
+              }
+            } catch (_) {}
+          });
+
+          // ── Connect + enable mic ─────────────────────────────────────────
+          await room.connect(serverUrl, token);
+          await room.localParticipant.setMicrophoneEnabled(true);
+          log("Microphone enabled", "success");
+
+          // Wire mic analyser
+          await setupMicAnalyser();
+
+        } catch (err) {
+          setStatus("Connection failed", "error");
+          log(`Connection error: ${err.message}`, "error");
+          console.error(err);
+        }
+      }
+
+      // ── Mic analyser setup ────────────────────────────────────────────────
+      async function setupMicAnalyser() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const ctx    = new AudioContext();
+          const src    = ctx.createMediaStreamSource(stream);
+          micAnalyser  = ctx.createAnalyser();
+          micAnalyser.fftSize = 64;
+          src.connect(micAnalyser);
+        } catch (_) {
+          log("Could not set up mic analyser (optional)", "warn");
+        }
+      }
+
+      // ── Visualizer loop ───────────────────────────────────────────────────
+      function startVisualizerLoop() {
+        const micData   = micAnalyser   ? new Uint8Array(micAnalyser.frequencyBinCount)   : null;
+        const agentData = agentAnalyser ? new Uint8Array(agentAnalyser.frequencyBinCount) : null;
+
+        function tick() {
+          // Mic data
+          let micAvg = 0;
+          if (micAnalyser && micData) {
+            micAnalyser.getByteFrequencyData(micData);
+            micAvg = micData.reduce((a, b) => a + b, 0) / micData.length;
+          }
+
+          // Agent data
+          let agentAvg = 0;
+          if (agentAnalyser && agentData) {
+            agentAnalyser.getByteFrequencyData(agentData);
+            agentAvg = agentData.reduce((a, b) => a + b, 0) / agentData.length;
+          }
+
+          // Update level bars
+          document.getElementById("mic-level-bar").style.width   = Math.min(100, micAvg * 1.2) + "%";
+          document.getElementById("agent-level-bar").style.width = Math.min(100, agentAvg * 1.2) + "%";
+          document.getElementById("mic-level-num").textContent   = Math.round(micAvg);
+          document.getElementById("agent-level-num").textContent = Math.round(agentAvg);
+
+          // Animate viz bars
+          for (let i = 0; i < BAR_COUNT; i++) {
+            const bar      = document.getElementById(`bar-${i}`);
+            const isMicBar = i < BAR_COUNT / 2;
+            const base     = isMicBar ? micAvg : agentAvg;
+            const noise    = Math.random() * base * 0.5;
+            const h        = Math.max(4, (base + noise) * 0.5);
+            bar.style.height    = Math.min(48, h) + "px";
+            bar.className = "viz-bar " + (isMicBar
+              ? (micAvg > 5   ? "mic-active"   : "")
+              : (agentAvg > 5 ? "agent-active" : ""));
+          }
+
+          animFrame = requestAnimationFrame(tick);
+        }
+
+        animFrame = requestAnimationFrame(tick);
+      }
+
+      function stopVisualizerLoop() {
+        if (animFrame) cancelAnimationFrame(animFrame);
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const bar = document.getElementById(`bar-${i}`);
+          bar.style.height = "4px";
+          bar.className    = "viz-bar";
+        }
+        document.getElementById("mic-level-bar").style.width   = "0%";
+        document.getElementById("agent-level-bar").style.width = "0%";
+      }
+
+      // ── Mic toggle ────────────────────────────────────────────────────────
+      async function toggleMic() {
+        if (!room) return;
+        micEnabled = !micEnabled;
+        await room.localParticipant.setMicrophoneEnabled(micEnabled);
+        const btn = document.getElementById("btn-mic");
+        btn.textContent = micEnabled ? "🎤" : "🔇";
+        btn.className   = micEnabled ? "" : "muted";
+        log(`Microphone ${micEnabled ? "enabled" : "muted"}`, micEnabled ? "success" : "warn");
+      }
+
+      // ── Disconnect ────────────────────────────────────────────────────────
+      async function disconnect() {
+        if (room) {
+          await room.disconnect();
+          room = null;
+        }
+      }
+
+      // ── Auto-detect host for non-localhost ────────────────────────────────
+      window.addEventListener("DOMContentLoaded", () => {
+        const host = window.location.hostname;
+        if (host !== "localhost" && host !== "127.0.0.1") {
+          document.getElementById("token-api-url").value = `http://${host}:8080/api/token`;
+          document.getElementById("server-url").value    = `ws://${host}:7880`;
+        }
+        log("Ready — click 'Get Token' then 'Connect'", "info");
+      });
+    </script>
+  </body>
+</html>
