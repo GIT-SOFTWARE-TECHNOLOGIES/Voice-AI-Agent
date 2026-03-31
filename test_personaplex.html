@@ -235,10 +235,10 @@
       <div class="card-title">Connection</div>
 
       <label>Token API URL</label>
-      <input type="text" id="token-api-url" value="http://localhost:8080/api/token" />
+      <input type="text" id="token-api-url" value="https://api.gitsoftwaretech.in/api/token" />
 
       <label>LiveKit Server URL</label>
-      <input type="text" id="server-url" value="ws://localhost:7880" />
+      <input type="text" id="server-url" value="wss://livekit.gitsoftwaretech.in"/>
 
       <label>Room Name</label>
       <input type="text" id="room-name" value="personaplex-test" />
@@ -549,8 +549,8 @@
       window.addEventListener("DOMContentLoaded", () => {
         const host = window.location.hostname;
         if (host !== "localhost" && host !== "127.0.0.1") {
-          document.getElementById("token-api-url").value = `http://${host}:8080/api/token`;
-          document.getElementById("server-url").value    = `ws://${host}:7880`;
+          document.getElementById("token-api-url").value = `https://api.gitsoftwaretech.in/api/token`;
+          document.getElementById("server-url").value    = `wss://livekit.gitsoftwaretech.in`;
         }
         log("Ready — click 'Get Token' then 'Connect'", "info");
       });

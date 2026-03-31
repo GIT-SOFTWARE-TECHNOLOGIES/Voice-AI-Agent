@@ -1,20 +1,9 @@
-sip:
-  listen:
-    - udp://0.0.0.0:5060
-    - tcp://0.0.0.0:5060
-  max_call_duration: 1h
-  use_extern_ip: true
-  sip_trunk_inbound:
-    allowed_addresses:
-      - "0.0.0.0/0"
+api_key: devkey
+api_secret: secret1234567890secret1234567890
+ws_url: ws://localhost:7880
 
 redis:
   address: localhost:6379
 
-livekit:
-  api_key: devkey
-  api_secret: secret1234567890secret1234567890
-  ws_url: ws://localhost:7880
-
 logging:
-  level: debug
+  level: info

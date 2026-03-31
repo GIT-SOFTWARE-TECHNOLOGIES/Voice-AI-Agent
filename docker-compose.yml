@@ -37,6 +37,21 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+<<<<<<< HEAD
+=======
+#livekit-sip
+  livekit-sip:
+    image: livekit/sip:latest
+    container_name: livekit-sip
+    network_mode: host
+    volumes:
+      - ./docker-files-livekit/sip.yaml:/config/sip.yaml
+    command: ["--config", "/config/sip.yaml"]
+    depends_on:
+      livekit:
+        condition: service_healthy
+    restart: unless-stopped    
+>>>>>>> 6c17703 (Resolved conflicts)
  
   # ── Token Server ─────────────────────────────────────────────────────────────
   token-server:
