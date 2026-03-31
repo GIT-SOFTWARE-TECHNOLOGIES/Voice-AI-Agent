@@ -37,8 +37,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-<<<<<<< HEAD
-=======
+
 #livekit-sip
   livekit-sip:
     image: livekit/sip:latest
@@ -51,7 +50,6 @@ services:
       livekit:
         condition: service_healthy
     restart: unless-stopped    
->>>>>>> 6c17703 (Resolved conflicts)
  
   # ── Token Server ─────────────────────────────────────────────────────────────
   token-server:
