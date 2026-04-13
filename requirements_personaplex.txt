@@ -26,3 +26,5 @@ sphn==0.1.4
 # CPU: ~0.5-1s per utterance with 'base' model
 # GPU: real-time with 'small' model
 faster-whisper>=1.0.0
+
+requests

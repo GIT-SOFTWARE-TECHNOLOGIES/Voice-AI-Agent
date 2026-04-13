@@ -26,6 +26,8 @@ import uuid
 from pathlib import Path
 from typing import Optional, Callable
 
+from src.transcript.txt_writer import TxtTranscriptWriter
+
 logger = logging.getLogger("transcript.manager")
 
 TRANSCRIPTS_DIR = Path("transcripts")
@@ -77,10 +79,18 @@ class TranscriptManager:
         TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
         self._jsonl_path = TRANSCRIPTS_DIR / f"{self.session_id}.jsonl"
 
+        # ── Plain-text transcript (one .txt file per session) ─────────────
+        self._txt_writer = TxtTranscriptWriter(
+            transcripts_dir=TRANSCRIPTS_DIR,
+            session_id=self.session_id,
+            room_name=room_name,
+            started_at=self._session_start,
+        )
+
         self._init_db()
         logger.info(
-            "TranscriptManager ready — session=%s  room=%s  file=%s",
-            self.session_id, room_name, self._jsonl_path,
+            "TranscriptManager ready — session=%s  room=%s  file=%s  txt=%s",
+            self.session_id, room_name, self._jsonl_path, self._txt_writer.path,
         )
 
     # ── DB bootstrap ──────────────────────────────────────────────────────────
@@ -160,7 +170,10 @@ class TranscriptManager:
         with open(self._jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(turn, ensure_ascii=False) + "\n")
 
-        # ── 2. Fire optional live callback (webhook, UI push, CRM) ───────────
+        # ── 2. Write to plain-text .txt file (human-readable, timestamped) ───
+        self._txt_writer.write_turn(role=role, text=text, ts=turn["ts"])
+
+        # ── 3. Fire optional live callback (webhook, UI push, CRM) ───────────
         if self._on_turn_callback:
             try:
                 self._on_turn_callback(turn)
@@ -200,6 +213,17 @@ class TranscriptManager:
             "Flushed %d turns → SQLite  (session=%s)",
             len(self._turns), self.session_id,
         )
+
+        # ── Write footer to plain-text file ──────────────────────────────────
+        duration_s = time.time() - self._session_start
+        agent_turns = sum(1 for t in self._turns if t["role"] == "agent")
+        user_turns  = sum(1 for t in self._turns if t["role"] == "user")
+        self._txt_writer.write_footer(
+            duration_s=duration_s,
+            agent_turns=agent_turns,
+            user_turns=user_turns,
+        )
+        logger.info("Txt transcript finalised → %s", self._txt_writer.path)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

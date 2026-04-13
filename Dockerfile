@@ -16,8 +16,8 @@ WORKDIR /app
 
 # Install Python dependencies first (layer cache)
 COPY requirements_personaplex.txt .
-RUN pip install --no-cache-dir -r requirements_personaplex.txt
-RUN pip install --no-cache-dir scipy sphn
+RUN pip install -r requirements_personaplex.txt
+RUN pip install scipy sphn
 
 # Copy project source
 COPY src/ ./src/
