@@ -1,10 +1,11 @@
 """
 bridge.py  — PersonaPlexBridge with full transcript support
 ============================================================
-CHANGES FROM ORIGINAL (marked with  # ← NEW):
+CHANGES FROM ORIGINAL (marked with  # <- NEW):
   1. __init__ accepts optional transcript_manager + user_transcriber
-  2. _emit_text  calls transcript_manager.add_agent_turn()
-  3. _handle_stream  passes each frame to user_transcriber.push_frame()
+  2. _emit_text buffers agent words and flushes as a complete sentence
+     after AGENT_FLUSH_TIMEOUT seconds of silence between words
+  3. _handle_stream passes each frame to user_transcriber.push_frame()
 
 Everything else is identical to the original.
 """
@@ -17,7 +18,6 @@ import websockets
 from livekit import rtc
 import sphn
 
-# ← NEW — import the two transcript helpers
 from src.transcript.manager import TranscriptManager
 from src.transcript.user_transcriber import UserTranscriber
 
@@ -30,6 +30,38 @@ MSG_HANDSHAKE = 0x00
 MSG_AUDIO     = 0x01
 MSG_TEXT      = 0x02
 
+# Seconds with no new word before the buffered agent sentence is saved
+AGENT_FLUSH_TIMEOUT = 1.5
+
+# Punctuation characters that should attach to the previous word (no space before them)
+_PUNCT_STARTS  = set(".,?!:;")
+_CONTRACTIONS  = {"'ll", "'re", "'ve", "'d", "'m", "'s", "'"}
+
+
+def _join_tokens(tokens: list[str]) -> str:
+    """
+    Join a list of word/punctuation tokens into a natural sentence.
+
+    Rules:
+      - Punctuation-starting tokens (,.?!:;) attach directly to the preceding word.
+      - Contraction suffixes ('ll, 're, 've, 'd, 'm, 's) attach directly.
+      - Everything else is separated by a single space.
+
+    Example:
+      ["Hello", ",", "this", "is", "Kelly", ".", "How", "can", "I", "help", "?"]
+      -> "Hello, this is Kelly. How can I help?"
+    """
+    parts = []
+    for token in tokens:
+        t = token.strip()
+        if not t:
+            continue
+        if (t[0] in _PUNCT_STARTS or t in _CONTRACTIONS) and parts:
+            parts[-1] += t      # attach directly, no space
+        else:
+            parts.append(t)
+    return " ".join(parts).strip()
+
 
 class PersonaPlexBridge:
     def __init__(
@@ -37,7 +69,6 @@ class PersonaPlexBridge:
         ws_url: str,
         on_text_callback: Optional[Callable[[str], None]] = None,
         on_state_callback: Optional[Callable[[str], None]] = None,
-        # ← NEW — optional transcript hooks
         transcript_manager: Optional[TranscriptManager] = None,
         user_transcriber: Optional[UserTranscriber] = None,
     ):
@@ -47,9 +78,12 @@ class PersonaPlexBridge:
         self._on_text_callback   = on_text_callback
         self._on_state_callback  = on_state_callback
 
-        # ← NEW
         self._transcript_manager = transcript_manager
         self._user_transcriber   = user_transcriber
+
+        # Buffer agent word tokens; flush as one sentence after a pause
+        self._agent_word_buffer: list[str] = []
+        self._agent_flush_task: Optional[asyncio.Task] = None
 
         self._opus_encoder = sphn.OpusStreamWriter(MOSHI_SAMPLE_RATE)
         self._opus_decoder = sphn.OpusStreamReader(MOSHI_SAMPLE_RATE)
@@ -69,15 +103,48 @@ class PersonaPlexBridge:
                 pass
 
     def _emit_text(self, text: str):
+        """
+        Called for every MSG_TEXT token from PersonaPlex.
+        Fires on_text_callback immediately (existing behaviour) but BUFFERS
+        tokens for the transcript and saves them as one full sentence after
+        AGENT_FLUSH_TIMEOUT seconds of silence.
+        """
         logger.info("[AI] %s", text)
         if self._on_text_callback:
             try:
                 self._on_text_callback(text)
             except Exception:
                 pass
-        # ← NEW — store agent turn
+
         if self._transcript_manager and text.strip():
-            self._transcript_manager.add_agent_turn(text)
+            self._agent_word_buffer.append(text)
+            # Reset the flush countdown on every new token
+            if self._agent_flush_task and not self._agent_flush_task.done():
+                self._agent_flush_task.cancel()
+            self._agent_flush_task = asyncio.ensure_future(
+                self._flush_agent_buffer()
+            )
+
+    async def _flush_agent_buffer(self):
+        """Wait for silence, then save all buffered tokens as one sentence."""
+        await asyncio.sleep(AGENT_FLUSH_TIMEOUT)
+        if not self._agent_word_buffer:
+            return
+        sentence = _join_tokens(self._agent_word_buffer)
+        self._agent_word_buffer = []
+        if sentence and self._transcript_manager:
+            self._transcript_manager.add_agent_turn(sentence)
+            logger.info("[TRANSCRIPT] AGENT: %s", sentence)
+
+    def _flush_agent_buffer_sync(self):
+        """Synchronous flush for use in finally blocks."""
+        if not self._agent_word_buffer:
+            return
+        sentence = _join_tokens(self._agent_word_buffer)
+        self._agent_word_buffer = []
+        if sentence and self._transcript_manager:
+            self._transcript_manager.add_agent_turn(sentence)
+            logger.info("[TRANSCRIPT] AGENT (final flush): %s", sentence)
 
     # ── Audio helpers (unchanged) ─────────────────────────────────────────────
 
@@ -119,7 +186,7 @@ class PersonaPlexBridge:
         resampled = np.interp(x_new, x_old, pcm_float32)
         return (np.clip(resampled, -1.0, 1.0) * 32767).astype(np.int16)
 
-    # ── Main entry point (unchanged) ──────────────────────────────────────────
+    # ── Main entry point ──────────────────────────────────────────────────────
 
     async def run(self, room: rtc.Room, local_participant: rtc.LocalParticipant):
         logger.info("Connecting to PersonaPlex at %s...", self.ws_url[:80])
@@ -162,6 +229,8 @@ class PersonaPlexBridge:
             logger.error("Bridge error: %s", e, exc_info=True)
             self._emit_state("error")
         finally:
+            # Flush any words still in the buffer before stopping
+            self._flush_agent_buffer_sync()
             self._running = False
             self._emit_state("stopped")
             logger.info(
@@ -183,7 +252,7 @@ class PersonaPlexBridge:
         self._mic_track_ready = asyncio.Event()
 
         async def _handle_stream(stream: rtc.AudioStream, identity: str) -> None:
-            logger.info("🎤 Mic stream started from: %s", identity)
+            logger.info("Mic stream started from: %s", identity)
             self._mic_track_ready.set()
             async for frame_event in stream:
                 if not self._running:
@@ -196,10 +265,9 @@ class PersonaPlexBridge:
                     rms = float(np.sqrt(np.mean(pcm_int16.astype(np.float32) ** 2)))
                     if rms > 500:
                         if not self._mic_active:
-                            logger.info("🎤 Mic ACTIVE! RMS=%.0f", rms)
+                            logger.info("Mic ACTIVE! RMS=%.0f", rms)
                             self._mic_active = True
 
-                    # ← NEW — feed frame to Whisper VAD/transcriber
                     if self._user_transcriber:
                         await self._user_transcriber.push_frame(pcm_int16)
 
@@ -208,7 +276,7 @@ class PersonaPlexBridge:
 
         def subscribe_to_track(track, participant):
             identity = getattr(participant, "identity", "unknown")
-            logger.info("🎧 Subscribing to mic track from: %s", identity)
+            logger.info("Subscribing to mic track from: %s", identity)
             stream = rtc.AudioStream(track, sample_rate=LIVEKIT_SAMPLE_RATE)
             asyncio.ensure_future(_handle_stream(stream, identity))
 
@@ -250,7 +318,7 @@ class PersonaPlexBridge:
             sleep_time = max(0.0, 0.08 - elapsed)
             await asyncio.sleep(sleep_time)
 
-    # ── Outbound: PersonaPlex → LiveKit speaker (unchanged) ───────────────────
+    # ── Outbound: PersonaPlex → LiveKit speaker ───────────────────────────────
 
     async def _outbound_loop(self, ws, audio_source: rtc.AudioSource) -> None:
         logger.info("Outbound loop started")
@@ -287,7 +355,7 @@ class PersonaPlexBridge:
                 try:
                     text = payload.decode("utf-8").strip()
                     if text:
-                        self._emit_text(text)  # ← this now also saves to transcript
+                        self._emit_text(text)
                 except UnicodeDecodeError:
                     pass
 

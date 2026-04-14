@@ -1,0 +1,266 @@
+── Session Start ─────────────────────────────────────────────────
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+  Session : fdf36120-826b-4b71-a309-96375e96ea71
+  Room    : personaplex-test
+  Started : 2026-04-14 12:02:11 UTC
+─
+

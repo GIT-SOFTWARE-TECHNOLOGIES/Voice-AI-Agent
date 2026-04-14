@@ -1,0 +1,10 @@
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "agent", "text": "Hello, welcome to Grand view Hotel. How can I help you today?", "ts": 1776165721.1463044, "turn_index": 0}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "How can you help me?", "ts": 1776165725.874367, "turn_index": 1}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "agent", "text": "Of course! What can I do for you at Grand view?", "ts": 1776165726.4602325, "turn_index": 2}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "agent", "text": "Sure thing. Could I get your room number so I can check that for you?", "ts": 1776165733.506913, "turn_index": 3}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "Hi.", "ts": 1776165735.1149077, "turn_index": 4}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "Okay.", "ts": 1776165735.6551273, "turn_index": 5}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "My room number is one-year-one.", "ts": 1776165739.4683592, "turn_index": 6}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "agent", "text": "Got it, room 1 0 1. Any special key code or note I should know?", "ts": 1776165741.5584383, "turn_index": 7}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "I need brick.", "ts": 1776165741.8027306, "turn_index": 8}
+{"session_id": "6d7479e2-e20f-42f9-961f-537ee633e163", "room": "personaplex-test", "role": "user", "text": "No, no.", "ts": 1776165744.6908636, "turn_index": 9}

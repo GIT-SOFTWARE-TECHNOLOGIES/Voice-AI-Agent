@@ -1,0 +1,15 @@
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "Hello,thisisKellyfromGrandviewHotel.HowcanIhelpyoutoday?", "ts": 1776158710.7138965, "turn_index": 0}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "How can you help me?", "ts": 1776158713.941397, "turn_index": 1}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "Ofcourse!WhatcanIdoforyouatGrandview?", "ts": 1776158716.1379712, "turn_index": 2}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "I need to get a fast token here for a bit", "ts": 1776158720.6626892, "turn_index": 3}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "Yeswedo.Doyouhavearoomnumberorcheckintime?", "ts": 1776158723.5883205, "turn_index": 4}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "Yeah.", "ts": 1776158728.2281723, "turn_index": 5}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "My room number is one, just one.", "ts": 1776158728.5670156, "turn_index": 6}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "Thanks.Yourkeywillbereadyatthefrontdeskunderyourname.", "ts": 1776158731.5986896, "turn_index": 7}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "Okay, thanks.", "ts": 1776158736.801786, "turn_index": 8}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "Bye.", "ts": 1776158737.013806, "turn_index": 9}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "You'welcome!Needanythingelse?", "ts": 1776158737.0874226, "turn_index": 10}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "user", "text": "No time to buy.", "ts": 1776158739.955728, "turn_index": 11}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "You'welcome!Haveagreatday!", "ts": 1776158742.0533574, "turn_index": 12}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "7135.That'sright.", "ts": 1776158783.7465196, "turn_index": 13}
+{"session_id": "4f41f0b3-0095-4472-832f-7984ebb6b21f", "room": "personaplex-test", "role": "agent", "text": "Great!Feelfreetocallagain.Haveagreattrip!", "ts": 1776158844.6494977, "turn_index": 14}

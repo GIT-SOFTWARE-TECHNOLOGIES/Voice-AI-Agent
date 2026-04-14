@@ -1,0 +1,467 @@
+── Session Start ─────────────────────────────────────────────────
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+  Session : 19768a68-71e0-4d6d-bb21-27c07e60e8be
+  Room    : personaplex-test
+  Started : 2026-04-14 11:22:26 UTC
+─
+
+[11:23:35]  AGENT : Hello, welcome to Grand view Hotel. This is Kelly. How can I help you today?
+
+── Session End ────────────────────────────────────────────────────
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─
+  Duration  : 1m 15s
+  Turns     : 1  (agent: 1  user: 0)
+─

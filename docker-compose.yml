@@ -87,6 +87,8 @@ services:
       token-server:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./transcripts:/app/transcripts
  
   # ── Test UI (serves test_personaplex.html) ───────────────────────────────────
   test-ui:
