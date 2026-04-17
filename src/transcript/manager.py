@@ -3,23 +3,26 @@ TranscriptManager
 =================
 Captures BOTH agent and user turns for a PersonaPlex session.
 
-Agent turns  → come from MSG_TEXT frames via on_text_callback (already wired)
-User turns   → come from local Whisper (faster-whisper) running on the raw
+Agent turns  -> come from MSG_TEXT frames via on_text_callback (already wired)
+User turns   -> come from local Whisper (faster-whisper) running on the raw
                PCM already present in _handle_stream inside bridge.py
 
 Storage:
-  • JSONL  — one file per session, one JSON object per line (crash-safe)
-  • SQLite — all sessions in one DB for querying / analytics
+  * JSONL  -- one file per session, one JSON object per line (crash-safe)
+  * SQLite -- all sessions in one DB for querying / analytics
+  * TXT    -- human-readable plain text file per session
 
 Directory layout produced:
   transcripts/
-    sessions.db          ← SQLite, all sessions
-    <session_id>.jsonl   ← per-session append log
+    sessions.db          <- SQLite, all sessions
+    <session_id>.jsonl   <- per-session append log
+    txt/<date>/<session_id>.txt  <- plain text
 """
 
 import asyncio
 import json
 import logging
+import re
 import sqlite3
 import time
 import uuid
@@ -33,24 +36,51 @@ logger = logging.getLogger("transcript.manager")
 TRANSCRIPTS_DIR = Path("transcripts")
 DB_PATH = TRANSCRIPTS_DIR / "sessions.db"
 
+# ── Agent text cleanup ─────────────────────────────────────────────────────────
+
+def _cleanup_agent_text(text: str) -> str:
+    """
+    Fix common subword fragment artifacts produced by PersonaPlex (Moshi).
+
+    PersonaPlex is a speech model — it streams phoneme/subword fragments
+    as MSG_TEXT tokens. After joining with spaces these leave artifacts like:
+      "What' s"  -> "What's"
+      "Al right" -> "Alright"
+      "re serv ation" -> still imperfect (no context to fix all cases)
+
+    This function applies safe, conservative regex fixes.
+    """
+    # Fix split contractions: "What' s" -> "What's", "I' m" -> "I'm"
+    text = re.sub(r"'\s+([a-z]{1,3})\b", r"'\1", text)
+
+    # Fix space before punctuation
+    text = re.sub(r'\s+([.,?!:;])', r'\1', text)
+
+    # Fix common PersonaPlex word splits
+    replacements = [
+        (r'\bAl right\b',   'Alright'),
+        (r'\bal right\b',   'alright'),
+        (r'\bcheck in s\b', 'check-ins'),
+        (r'\bres erv ation\b', 'reservation'),
+        (r'\breserv ation\b',  'reservation'),
+        (r'\bre serv ation\b', 'reservation'),
+        (r'\bserv ation\b',    'servation'),   # partial — better than nothing
+        (r'\bcon firm ation\b', 'confirmation'),
+        (r'\bin form ation\b',  'information'),
+        (r'\bappointment\b',    'appointment'),  # already fine, keep
+    ]
+    for pattern, replacement in replacements:
+        text = re.sub(pattern, replacement, text)
+
+    # Fix multiple spaces
+    text = re.sub(r'  +', ' ', text)
+
+    return text.strip()
+
 
 class TranscriptManager:
     """
     Thread-safe (asyncio-compatible) transcript store.
-
-    Usage
-    -----
-    # In PersonaPlexAgent.run():
-    transcript = TranscriptManager(room_name=self.room_name)
-
-    def on_text(text: str):
-        transcript.add_agent_turn(text)          # agent words
-
-    # Inside bridge._handle_stream():
-    transcript.add_user_turn(text)               # whisper result
-
-    # On session end (finally block):
-    transcript.flush_to_db()
     """
 
     def __init__(
@@ -59,14 +89,6 @@ class TranscriptManager:
         session_id: Optional[str] = None,
         on_turn_callback: Optional[Callable[[dict], None]] = None,
     ):
-        """
-        Parameters
-        ----------
-        room_name        : LiveKit room name — used as label in DB
-        session_id       : UUID string; auto-generated if not supplied
-        on_turn_callback : optional hook called on every new turn (for
-                           webhooks, CRM push, live UI streaming, etc.)
-        """
         self.room_name = room_name
         self.session_id = session_id or str(uuid.uuid4())
         self._on_turn_callback = on_turn_callback
@@ -79,7 +101,6 @@ class TranscriptManager:
         TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
         self._jsonl_path = TRANSCRIPTS_DIR / f"{self.session_id}.jsonl"
 
-        # ── Plain-text transcript (one .txt file per session) ─────────────
         self._txt_writer = TxtTranscriptWriter(
             transcripts_dir=TRANSCRIPTS_DIR,
             session_id=self.session_id,
@@ -96,7 +117,6 @@ class TranscriptManager:
     # ── DB bootstrap ──────────────────────────────────────────────────────────
 
     def _init_db(self):
-        """Create the SQLite schema if it doesn't exist yet."""
         conn = sqlite3.connect(DB_PATH)
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -111,7 +131,7 @@ class TranscriptManager:
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id   TEXT    NOT NULL,
                 room_name    TEXT    NOT NULL,
-                role         TEXT    NOT NULL,   -- 'agent' | 'user'
+                role         TEXT    NOT NULL,
                 text         TEXT    NOT NULL,
                 ts           REAL    NOT NULL,
                 turn_index   INTEGER NOT NULL,
@@ -124,8 +144,6 @@ class TranscriptManager:
             CREATE INDEX IF NOT EXISTS idx_turns_role
                 ON turns(role);
         """)
-
-        # Register this session
         conn.execute(
             "INSERT OR IGNORE INTO sessions (session_id, room_name, started_at) "
             "VALUES (?, ?, ?)",
@@ -138,10 +156,12 @@ class TranscriptManager:
 
     def add_agent_turn(self, text: str):
         """
-        Call this from on_text_callback in personaplex_agent_new.py.
-        MSG_TEXT frames from PersonaPlex → agent words.
+        Call this after flushing the agent word buffer in bridge.py.
+        Runs cleanup to fix subword fragment artifacts before storing.
         """
-        self._add_turn(role="agent", text=text)
+        cleaned = _cleanup_agent_text(text)
+        if cleaned:
+            self._add_turn(role="agent", text=cleaned)
 
     def add_user_turn(self, text: str):
         """
@@ -166,29 +186,25 @@ class TranscriptManager:
         self._turns.append(turn)
         self._turn_index += 1
 
-        # ── 1. Write to JSONL immediately (crash-safe, no DB needed) ──────────
+        # 1. Write to JSONL immediately (crash-safe)
         with open(self._jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(turn, ensure_ascii=False) + "\n")
 
-        # ── 2. Write to plain-text .txt file (human-readable, timestamped) ───
+        # 2. Write to plain-text .txt file
         self._txt_writer.write_turn(role=role, text=text, ts=turn["ts"])
 
-        # ── 3. Fire optional live callback (webhook, UI push, CRM) ───────────
+        # 3. Fire optional live callback
         if self._on_turn_callback:
             try:
                 self._on_turn_callback(turn)
             except Exception as e:
                 logger.warning("on_turn_callback error: %s", e)
 
-        label = "🤖 AGENT" if role == "agent" else "🧑 USER"
+        label = "AGENT" if role == "agent" else "USER "
         logger.info("[TRANSCRIPT] %s: %s", label, text)
 
     def flush_to_db(self):
-        """
-        Write all buffered turns to SQLite.
-        Call this once in the agent's finally block when the session ends.
-        This is a synchronous call — safe to call from a finally block.
-        """
+        """Write all buffered turns to SQLite. Call in the agent's finally block."""
         if not self._turns:
             logger.info("No turns to flush for session %s", self.session_id)
             return
@@ -210,11 +226,10 @@ class TranscriptManager:
         conn.close()
 
         logger.info(
-            "Flushed %d turns → SQLite  (session=%s)",
+            "Flushed %d turns -> SQLite  (session=%s)",
             len(self._turns), self.session_id,
         )
 
-        # ── Write footer to plain-text file ──────────────────────────────────
         duration_s = time.time() - self._session_start
         agent_turns = sum(1 for t in self._turns if t["role"] == "agent")
         user_turns  = sum(1 for t in self._turns if t["role"] == "user")
@@ -223,12 +238,11 @@ class TranscriptManager:
             agent_turns=agent_turns,
             user_turns=user_turns,
         )
-        logger.info("Txt transcript finalised → %s", self._txt_writer.path)
+        logger.info("Txt transcript finalised -> %s", self._txt_writer.path)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def get_full_transcript(self) -> str:
-        """Return the session as a human-readable string."""
         lines = []
         for t in self._turns:
             speaker = "AGENT" if t["role"] == "agent" else "USER"
@@ -236,7 +250,6 @@ class TranscriptManager:
         return "\n".join(lines)
 
     def get_turns(self) -> list[dict]:
-        """Return a copy of all turns so far."""
         return list(self._turns)
 
     @property
@@ -245,7 +258,6 @@ class TranscriptManager:
 
     @staticmethod
     def load_session(session_id: str) -> list[dict]:
-        """Load all turns for a past session from SQLite."""
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -257,7 +269,6 @@ class TranscriptManager:
 
     @staticmethod
     def list_sessions() -> list[dict]:
-        """List all recorded sessions (most recent first)."""
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(

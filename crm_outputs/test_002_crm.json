@@ -1,0 +1,11 @@
+{
+  "room_number": "504",
+  "service_type": "mainteninanace",
+  "items": [],
+  "pickup_time": null,
+  "delivery_deadline": null,
+  "special_notes": "",
+  "urgency": "urgent",
+  "status": "pending",
+  "confidence": "high"
+}

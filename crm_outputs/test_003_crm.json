@@ -1,0 +1,20 @@
+{
+  "room_number": "201",
+  "service_type": "food_and_beverages",
+  "items": [
+    {
+      "name": "club sandwich",
+      "quantity": null
+    },
+    {
+      "name": "cola",
+      "quantity": null
+    }
+  ],
+  "pickup_time": null,
+  "delivery_deadline": null,
+  "special_notes": null,
+  "urgency": "normal",
+  "status": "pending",
+  "confidence": "high"
+}

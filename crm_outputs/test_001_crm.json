@@ -1,0 +1,20 @@
+{
+  "room_number": null,
+  "service_type": "laundry",
+  "items": [
+    {
+      "name": "shirt",
+      "quantity": 2
+    },
+    {
+      "name": "jacket",
+      "quantity": 1
+    }
+  ],
+  "pickup_time": "tomorrow morning",
+  "delivery_deadline": null,
+  "special_notes": null,
+  "urgency": "normal",
+  "status": "pending",
+  "confidence": "high"
+}

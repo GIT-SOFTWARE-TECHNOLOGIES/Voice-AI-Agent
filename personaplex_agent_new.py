@@ -23,6 +23,7 @@ from src.personaplex.bridge import PersonaPlexBridge
 # ← NEW
 from src.transcript.manager import TranscriptManager
 from src.transcript.user_transcriber import UserTranscriber
+from crm_extractor import extract_crm  # ← NEW
 
 load_dotenv()
 
@@ -148,6 +149,12 @@ class PersonaPlexAgent:
             logger.info(
                 "Session saved. ID=%s  turns=%d",
                 transcript.session_id, transcript.turn_count,
+            )
+            # ← NEW — extract CRM JSON via Phi-3 Mini
+            extract_crm(
+                session_id=transcript.session_id,
+                room_name=transcript.room_name,
+                turns=transcript.get_turns(),
             )
             if self.room:
                 await self.room.disconnect()

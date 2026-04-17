@@ -5,5 +5,4 @@ __pycache__/
 *.log
 venv/
 node_modules/
-
 transcripts/
