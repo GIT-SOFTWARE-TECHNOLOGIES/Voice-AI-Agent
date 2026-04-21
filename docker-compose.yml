@@ -102,6 +102,16 @@ services:
     depends_on:
       - livekit
     restart: unless-stopped
+  # ── Taxi Worker ──────────────────────────────────────────────────────────────
+  taxi-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taxi-worker
+    command: ["python", "-c", "import logging; logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s'); print('Taxi worker loaded — running inline with agent')"]
+    env_file:
+      - .env
+    restart: unless-stopped  
  
 volumes:
   livekit_redis_data:

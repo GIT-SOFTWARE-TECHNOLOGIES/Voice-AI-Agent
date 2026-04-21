@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from src.transcript.txt_writer import TxtTranscriptWriter
+from taxi_client import trigger_taxi_worker
 
 logger = logging.getLogger("transcript.manager")
 
@@ -208,8 +209,16 @@ class TranscriptManager:
             except Exception as e:
                 logger.warning("on_turn_callback error: %s", e)
 
+        if role == "user":
+            trigger_taxi_worker(
+                turns=list(self._turns),
+                session_id=self.session_id,
+            )        
+
         label = "AGENT" if role == "agent" else "USER "
         logger.info("[TRANSCRIPT] %s: %s", label, text)
+        # Taxi worker — fire on every user turn
+        
 
     def flush_to_db(self):
         """Write all buffered turns to SQLite. Call in the agent's finally block."""

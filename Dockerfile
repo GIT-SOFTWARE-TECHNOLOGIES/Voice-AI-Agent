@@ -24,6 +24,8 @@ COPY src/ ./src/
 COPY personaplex_agent_new.py .
 COPY token_server.py .
 COPY crm_extractor.py .
+COPY taxi_client.py .
+
 COPY .env .
 
 # Expose token server port
