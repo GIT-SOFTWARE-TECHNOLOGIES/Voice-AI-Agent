@@ -33,8 +33,11 @@ from src.transcript.txt_writer import TxtTranscriptWriter
 
 logger = logging.getLogger("transcript.manager")
 
-TRANSCRIPTS_DIR = Path("transcripts")
-DB_PATH = TRANSCRIPTS_DIR / "sessions.db"
+TRANSCRIPTS_DIR   = Path("transcripts")
+DB_PATH           = TRANSCRIPTS_DIR / "sessions.db"
+UNPROCESSED_DIR   = TRANSCRIPTS_DIR / "unprocessed"   # new JSONs land here
+PROCESSED_DIR     = TRANSCRIPTS_DIR / "processed"     # CRM worker moves here
+FAILED_DIR        = TRANSCRIPTS_DIR / "failed"        # failed processing goes here
 
 # ── Agent text cleanup ─────────────────────────────────────────────────────────
 
@@ -99,7 +102,12 @@ class TranscriptManager:
         self._lock = asyncio.Lock()
 
         TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
-        self._jsonl_path = TRANSCRIPTS_DIR / f"{self.session_id}.jsonl"
+        UNPROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+        FAILED_DIR.mkdir(parents=True, exist_ok=True)
+
+        # JSONL saved to unprocessed/ so CRM worker can pick it up
+        self._jsonl_path = UNPROCESSED_DIR / f"{self.session_id}.jsonl"
 
         self._txt_writer = TxtTranscriptWriter(
             transcripts_dir=TRANSCRIPTS_DIR,
@@ -276,3 +284,44 @@ class TranscriptManager:
         ).fetchall()
         conn.close()
         return [dict(r) for r in rows]
+
+    # ── CRM pipeline helpers ──────────────────────────────────────────────────
+
+    @staticmethod
+    def mark_processed(session_id: str) -> bool:
+        """
+        Move a session JSONL from unprocessed/ -> processed/.
+        Call this from crm_worker.py after successful CRM push.
+        Returns True if the file was moved, False if not found.
+        """
+        import shutil
+        src = UNPROCESSED_DIR / f"{session_id}.jsonl"
+        dst = PROCESSED_DIR   / f"{session_id}.jsonl"
+        if src.exists():
+            shutil.move(str(src), str(dst))
+            logger.info("Marked processed: %s", session_id)
+            return True
+        logger.warning("mark_processed: file not found for %s", session_id)
+        return False
+
+    @staticmethod
+    def mark_failed(session_id: str, reason: str = "") -> bool:
+        """
+        Move a session JSONL from unprocessed/ -> failed/.
+        Call this from crm_worker.py when CRM push fails.
+        Returns True if the file was moved, False if not found.
+        """
+        import shutil
+        src = UNPROCESSED_DIR / f"{session_id}.jsonl"
+        dst = FAILED_DIR      / f"{session_id}.jsonl"
+        if src.exists():
+            shutil.move(str(src), str(dst))
+            logger.info("Marked failed (%s): %s", reason, session_id)
+            return True
+        logger.warning("mark_failed: file not found for %s", session_id)
+        return False
+
+    @staticmethod
+    def list_unprocessed() -> list[Path]:
+        """Return all JSONL files waiting in unprocessed/ folder."""
+        return sorted(UNPROCESSED_DIR.glob("*.jsonl"))
