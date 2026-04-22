@@ -49,7 +49,7 @@ def get_object_type() -> str:
     This value is unique per HubSpot account — you get it by running
     create_schema() once and copying the returned object type.
     """
-    object_type = os.environ.get("HUBSPOT_OBJECT_TYPE")
+    object_type = os.environ.get("HUBSPOT_SERVICE_OBJECT_TYPE")
     if not object_type:
         raise EnvironmentError(
             "HUBSPOT_OBJECT_TYPE is not set.\n"

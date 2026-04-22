@@ -18,11 +18,10 @@ from typing import Optional, List, Any
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from intent_detector   import detect_taxi_intent, extract_pickup_time, extract_destination
-from taxi_worker       import TaxiWorker, GuestData
-from transcript_parser import parse_transcript
-from hubspot_client    import fetch_guest
-
+from src.taxi.intent_detector   import detect_taxi_intent, extract_pickup_time, extract_destination
+from src.taxi.taxi_worker       import TaxiWorker, GuestData
+from src.taxi.transcript_parser import parse_transcript
+from src.taxi.hubspot_client    import fetch_guest
 log = logging.getLogger("WebhookServer")
 app = FastAPI(title="Hotel Taxi Worker", version="4.0")
 

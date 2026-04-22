@@ -1,19 +1,13 @@
 """
 transcript_parser.py
 ━━━━━━━━━━━━━━━━━━━━
-Parses the full transcript (list of JSON turn objects) sent by your voice agent.
+Parses the full transcript from a live voice agent conversation.
 
-Each turn looks like:
-  {"session_id": "...", "room": "...", "role": "user"|"agent", "text": "...", "ts": ..., "turn_index": ...}
-
-What this module does:
-  1. Extracts destination, pickup_time, room_number, guest_name, guest_phone from the conversation
-  2. Detects booking confirmation ("yes", "confirm", etc. after final summary)
-  3. Detects cancellation intent
-  4. Returns a ParsedTranscript with everything the worker needs
-
-Your voice agent calls POST /transcript on every new user turn,
-passing the full transcript so far (all turns as a JSON array).
+Handles real voice agent conversations where:
+- Room numbers may be spoken as digits: "2, 0, 2" or "2 0 2" → "202"
+- Agent may confirm booking in natural language: "Your taxi will be ready"
+- Destination may not always be explicitly stated
+- Pickup time may come from agent's confirmation turn
 """
 
 import re
@@ -23,39 +17,33 @@ from typing import Optional, List
 from src.taxi.intent_detector import detect_taxi_intent, extract_destination, extract_pickup_time
 
 
-
 # ── Data model ─────────────────────────────────────────────────────────────────
 
 @dataclass
 class ParsedTranscript:
     session_id:   Optional[str] = None
 
-    # Booking intent
     has_taxi_intent: bool = False
-    intent_confidence: Optional[str] = None   # "high" | "medium"
+    intent_confidence: Optional[str] = None
 
-    # Extracted from conversation
     destination:  Optional[str] = None
     pickup_time:  Optional[str] = None
     room_number:  Optional[str] = None
     guest_name:   Optional[str] = None
     guest_phone:  Optional[str] = None
 
-    # Booking state
-    booking_confirmed: bool = False   # user said "confirm"/"yes" after final summary
+    booking_confirmed: bool = False
     booking_cancelled: bool = False
 
-    # What's still missing (your agent can use this to ask the right question)
     missing_fields: List[str] = field(default_factory=list)
-
-    # Last user text (for quick intent check)
     last_user_text: str = ""
 
 
-# ── Confirmation / cancellation patterns ──────────────────────────────────────
+# ── Patterns ───────────────────────────────────────────────────────────────────
 
 _CONFIRM = re.compile(
-    r"\b(yes|yep|yeah|confirm|confirmed|correct|sure|ok|okay|go ahead|proceed|book it|book|want to book|please|six|fine|great|perfect|sounds good)\b",
+    r"\b(yes|yep|yeah|confirm|confirmed|correct|sure|ok|okay|go ahead|"
+    r"proceed|book it|book|want to book|please|sounds good|perfect|great|fine)\b",
     re.IGNORECASE
 )
 _CANCEL = re.compile(
@@ -63,19 +51,25 @@ _CANCEL = re.compile(
     re.IGNORECASE
 )
 
-# ── Field extractors ───────────────────────────────────────────────────────────
+# Detects when agent naturally confirms booking in its own words
+_AGENT_BOOKING_DONE = re.compile(
+    r"\b(taxi will be|taxi is confirmed|booked your taxi|taxi has been|"
+    r"waiting outside|arrive within|on its way|driver will|cab will be|"
+    r"your ride|arranged your taxi|taxi for you)\b",
+    re.IGNORECASE
+)
 
 _PHONE_RE = re.compile(r"\b(\d{10})\b")
-_ROOM_RE  = re.compile(r"\b(\d{1,4}[A-Za-z]?)\b")
 
-# Words that are NOT names (filter false positives from name extraction)
 _NOT_A_NAME = {
     "yes", "no", "ok", "okay", "sure", "confirm", "confirmed", "correct",
     "hello", "hi", "thanks", "thank", "please", "airport", "station",
     "mall", "hotel", "lobby", "taxi", "cab", "ride", "book", "booking",
-    "now", "later", "time", "pm", "am", "cancel", "done",
+    "now", "later", "time", "pm", "am", "cancel", "done", "want",
 }
 
+
+# ── Field extractors ───────────────────────────────────────────────────────────
 
 def _extract_phone(text: str) -> Optional[str]:
     m = _PHONE_RE.search(text)
@@ -83,92 +77,96 @@ def _extract_phone(text: str) -> Optional[str]:
 
 
 def _extract_room(text: str) -> Optional[str]:
-    """Extract room number — handles both '202' and '2, 0, 2' spoken formats."""
-    # First try direct number
-    m = re.search(r'\b(\d{1,4})\b', text)
+    """
+    Extract room number — handles:
+    - Direct: "202", "101", "304B"
+    - Spoken digits: "2, 0, 2" → "202", "2 3 2 1" → "2321"
+    - Agent confirming: "Your room is 2 0 2"
+    """
+    # Remove commas and extra spaces, join digits
+    cleaned = re.sub(r'[\s,]+', '', text)
+
+    # Find 2-4 digit number (room numbers are 2-4 digits)
+    m = re.search(r'\b(\d{2,4})\b', cleaned)
     if m:
         candidate = m.group(1)
-        if len(candidate) <= 4:
+        if 2 <= len(candidate) <= 4:
             return candidate
 
-    # Handle spoken digits like "2, 0, 2" or "2 0 2" → "202"
-    spoken = re.sub(r'[\s,]+', '', text)
-    m = re.search(r'\b(\d{1,4})\b', spoken)
+    # Try original text for numbers like "101" or "204B"
+    m = re.search(r'\b(\d{1,4}[A-Za-z]?)\b', text)
     if m:
         candidate = m.group(1)
-        if len(candidate) <= 4:
+        if 2 <= len(re.sub(r'[A-Za-z]', '', candidate)) <= 4:
             return candidate
 
     return None
 
 
 def _extract_name(text: str) -> Optional[str]:
-    """
-    Extract a guest name from a short user reply.
-    Assumes the user replied with just their name (e.g. "Abhay" or "Abhay Sharma").
-    Filters out common non-name words.
-    """
     text = text.strip()
-    # Must be short (a name reply is usually 1-3 words)
     words = text.split()
     if len(words) > 4 or len(words) == 0:
         return None
-    # All words must be alpha (no digits, no punctuation)
     if not all(w.isalpha() for w in words):
         return None
-    # Filter out known non-name words
     if any(w.lower() in _NOT_A_NAME for w in words):
         return None
     return text.title()
 
 
-# ── Agent question classifier ─────────────────────────────────────────────────
-# We detect what the agent just asked so we know what the next user reply means.
+def _extract_room_from_agent(text: str) -> Optional[str]:
+    """Extract room number when agent confirms it: 'Your room is 2 0 2'"""
+    m = re.search(
+        r'\b(?:room(?:\s+(?:number|no|is))?|room\s+is)\s+([\d\s,]{1,10})',
+        text, re.IGNORECASE
+    )
+    if m:
+        raw = m.group(1)
+        digits = re.sub(r'[\s,]+', '', raw)
+        if 2 <= len(digits) <= 4:
+            return digits
+    return None
 
-_Q_DESTINATION = re.compile(r"\b(where|destination|going|drop)\b", re.IGNORECASE)
-_Q_ROOM        = re.compile(r"\b(room number|room no|your room)\b", re.IGNORECASE)
-_Q_NAME        = re.compile(r"\b(your name|may i have your name|name please)\b", re.IGNORECASE)
+
+def _extract_time_from_agent(text: str) -> Optional[str]:
+    """Extract pickup time when agent confirms it: 'Got it, 6 PM' or 'taxi for 7:30 PM'"""
+    patterns = [
+        r'\b(?:for|at|by|around)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b',
+        r'\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b',
+        r'\bin\s+(\d+\s+(?:minutes?|mins?|hours?))\b',
+    ]
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+# ── Agent question classifier ──────────────────────────────────────────────────
+
+_Q_DESTINATION = re.compile(r"\b(where|destination|going|drop|which place)\b", re.IGNORECASE)
+_Q_ROOM        = re.compile(r"\b(room number|room no|your room|which room)\b", re.IGNORECASE)
+_Q_NAME        = re.compile(r"\b(your name|may i have your name|name please|what.*name)\b", re.IGNORECASE)
 _Q_PHONE       = re.compile(r"\b(contact number|phone number|mobile number|number please)\b", re.IGNORECASE)
-_Q_TIME        = re.compile(r"\b(when|what time|pickup time|right now or|specific time)\b", re.IGNORECASE)
-# Final confirmation only — NOT "is that correct" (used mid-conversation after each field)
-_Q_CONFIRM = re.compile(
-    r"\b(i will now proceed|proceed to book|book your taxi|please confirm|shall i confirm|confirm your booking|taxi will be waiting|booked your taxi|taxi is confirmed|have a great|anything else|all set)\b",
+_Q_TIME        = re.compile(r"\b(when|what time|pickup time|right now or|specific time|what.*time)\b", re.IGNORECASE)
+_Q_CONFIRM     = re.compile(
+    r"\b(i will now proceed|proceed to book|book your taxi|please confirm|"
+    r"shall i confirm|confirm your booking|taxi will be waiting|booked your taxi|"
+    r"taxi is confirmed|have a great|anything else|all set|is that correct|"
+    r"shall i go ahead)\b",
     re.IGNORECASE
 )
-
-def _last_agent_question(turns: list) -> Optional[str]:
-    """Return what topic the agent most recently asked about."""
-    for turn in reversed(turns):
-        if turn.get("role") == "agent":
-            t = turn.get("text", "")
-            if _Q_CONFIRM.search(t):    return "confirm"
-            if _Q_PHONE.search(t):      return "phone"
-            if _Q_NAME.search(t):       return "name"
-            if _Q_ROOM.search(t):       return "room"
-            if _Q_TIME.search(t):       return "time"
-            if _Q_DESTINATION.search(t): return "destination"
-            break
-    return None
 
 
 # ── Main parser ────────────────────────────────────────────────────────────────
 
 def parse_transcript(turns: list) -> ParsedTranscript:
-    """
-    Parse the full transcript and return a ParsedTranscript.
-
-    Args:
-        turns: list of dicts, each with keys: role, text, ts, turn_index, session_id (optional)
-
-    Returns:
-        ParsedTranscript with all extracted fields and booking state.
-    """
     result = ParsedTranscript()
 
     if not turns:
         return result
 
-    # Session ID from first turn
     result.session_id = turns[0].get("session_id")
 
     user_turns  = [t for t in turns if t.get("role") == "user"]
@@ -177,11 +175,10 @@ def parse_transcript(turns: list) -> ParsedTranscript:
     if not user_turns:
         return result
 
-    # Last user text
     last_user = user_turns[-1]
     result.last_user_text = last_user.get("text", "").strip()
 
-    # ── Step 1: detect taxi intent across all user turns ──────────────────────
+    # ── Step 1: detect taxi intent ─────────────────────────────────────────────
     all_user_text = " ".join(t.get("text", "") for t in user_turns)
     intent = detect_taxi_intent(all_user_text)
 
@@ -190,19 +187,35 @@ def parse_transcript(turns: list) -> ParsedTranscript:
         return result
 
     if intent["intent"] == "book_taxi":
-        result.has_taxi_intent    = True
-        result.intent_confidence  = intent["confidence"]
+        result.has_taxi_intent   = True
+        result.intent_confidence = intent["confidence"]
 
-    # ── Step 2: extract fields from context-aware turn matching ───────────────
-    # Walk through turns in order; when agent asks something, the next user reply answers it.
-
+    # ── Step 2: context-aware turn matching ────────────────────────────────────
     for i, turn in enumerate(turns):
         if turn.get("role") != "agent":
             continue
 
         agent_text = turn.get("text", "")
 
-        # Find the next user turn after this agent turn
+        # Extract room number from agent's confirmation text
+        # e.g. "Your room is 2 0 2"
+        if not result.room_number:
+            room = _extract_room_from_agent(agent_text)
+            if room:
+                result.room_number = room
+
+        # Extract pickup time from agent's confirmation
+        # e.g. "Got it, 6 PM. Your taxi will be waiting"
+        if not result.pickup_time:
+            pt = _extract_time_from_agent(agent_text)
+            if pt:
+                result.pickup_time = pt
+
+        # Detect when agent naturally confirms booking done
+        if _AGENT_BOOKING_DONE.search(agent_text):
+            result.booking_confirmed = True
+
+        # Find next user turn for Q&A matching
         next_user = next(
             (t for t in turns[i+1:] if t.get("role") == "user"),
             None
@@ -211,7 +224,6 @@ def parse_transcript(turns: list) -> ParsedTranscript:
             continue
         user_reply = next_user.get("text", "").strip()
 
-        # What did the agent ask?
         if _Q_DESTINATION.search(agent_text) and not result.destination:
             dest = extract_destination(user_reply) or (user_reply.title() if len(user_reply) < 40 else None)
             if dest:
@@ -236,51 +248,53 @@ def parse_transcript(turns: list) -> ParsedTranscript:
             result.pickup_time = extract_pickup_time(user_reply)
 
         elif _Q_CONFIRM.search(agent_text):
-            # User reply to final confirmation
             if _CONFIRM.search(user_reply):
                 result.booking_confirmed = True
             elif _CANCEL.search(user_reply):
                 result.booking_cancelled = True
 
-    # ── Step 3: fallback — scan all user texts for fields still missing ───────
-    # ── Step 3: fallback — also check agent turns for confirmed pickup time ────
-    for turn in turns:
+    # ── Step 3: fallback scan ──────────────────────────────────────────────────
+    for turn in user_turns:
         text = turn.get("text", "")
-        role = turn.get("role", "")
 
-        # Extract destination from user turns
-        if role == "user" and not result.destination:
+        if not result.destination:
             d = extract_destination(text)
             if d:
                 result.destination = d
 
-        if role == "user" and not result.guest_phone:
+        if not result.guest_phone:
             p = _extract_phone(text)
             if p:
                 result.guest_phone = p
 
-        # Extract pickup time from BOTH user and agent turns
         if not result.pickup_time:
             pt = extract_pickup_time(text)
             if pt and pt != "now":
                 result.pickup_time = pt
 
-        # Extract room number from user turns — handle spoken digits
-        if role == "user" and not result.room_number:
+        # Extract room from user turns — handles spoken digits
+        if not result.room_number:
             room = _extract_room(text)
             if room:
                 result.room_number = room
 
-    # ── Step 4: also check first user turn for intent keywords ─────────────────
+    # ── Step 4: intent check on first turn ────────────────────────────────────
     if not result.has_taxi_intent:
         first_intent = detect_taxi_intent(user_turns[0].get("text", ""))
         if first_intent["intent"] == "book_taxi":
             result.has_taxi_intent   = True
             result.intent_confidence = first_intent["confidence"]
 
-    # ── Step 5: calculate missing fields ──────────────────────────────────────
-    # guest_name and guest_phone come from HubSpot CRM — not required from conversation.
-    # Only destination, room_number, pickup_time must be collected in the call.
+    # ── Step 5: clean up destination ──────────────────────────────────────────
+    # Remove false positives like "Book A Taxi" being set as destination
+    taxi_false_positives = {
+        "book a taxi", "taxi", "cab", "ride", "book", "a taxi",
+        "book a cab", "i want to book a taxi", "want to book"
+    }
+    if result.destination and result.destination.lower() in taxi_false_positives:
+        result.destination = None
+
+    # ── Step 6: missing fields ─────────────────────────────────────────────────
     missing = []
     if not result.destination:  missing.append("destination")
     if not result.room_number:  missing.append("room_number")
