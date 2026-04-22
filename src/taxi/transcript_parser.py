@@ -288,8 +288,10 @@ def parse_transcript(turns: list) -> ParsedTranscript:
     # ── Step 5: clean up destination ──────────────────────────────────────────
     # Remove false positives like "Book A Taxi" being set as destination
     taxi_false_positives = {
-        "book a taxi", "taxi", "cab", "ride", "book", "a taxi",
-        "book a cab", "i want to book a taxi", "want to book"
+    "book a taxi", "taxi", "cab", "ride", "book", "a taxi",
+    "book a cab", "i want to book a taxi", "want to book",   # ← comma here
+    "book a taxi to the airport",
+    "a taxi to the airport",
     }
     if result.destination and result.destination.lower() in taxi_false_positives:
         result.destination = None

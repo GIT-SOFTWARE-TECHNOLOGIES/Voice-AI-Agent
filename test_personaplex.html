@@ -387,16 +387,18 @@
           room.on(LivekitClient.RoomEvent.Connected, () => {
             setStatus("Connected — speak now", "connected");
             log("LiveKit room connected", "success");
+            document.getElementById("btn-token").style.display      = "none";
             document.getElementById("btn-connect").style.display    = "none";
-            document.getElementById("btn-disconnect").style.display = "";
-            document.getElementById("btn-mic").style.display        = "";
+            document.getElementById("btn-disconnect").style.display = "block";
+            document.getElementById("btn-mic").style.display        = "block";
             startVisualizerLoop();
           });
 
           room.on(LivekitClient.RoomEvent.Disconnected, () => {
             setStatus("Disconnected", "");
             log("Disconnected from room");
-            document.getElementById("btn-connect").style.display    = "";
+            document.getElementById("btn-token").style.display      = "block";
+            document.getElementById("btn-connect").style.display    = "block";
             document.getElementById("btn-disconnect").style.display = "none";
             document.getElementById("btn-mic").style.display        = "none";
             stopVisualizerLoop();
@@ -539,10 +541,22 @@
 
       // ── Disconnect ────────────────────────────────────────────────────────
       async function disconnect() {
-        if (room) {
-          await room.disconnect();
-          room = null;
+        if (!room) {
+          log("Not connected", "warn");
+          return;
         }
+        log("Disconnecting...", "warn");
+        try {
+          await room.disconnect();
+        } catch (e) {
+          log(`Disconnect error: ${e.message}`, "error");
+        }
+        room = null;
+        micEnabled = true;
+        const micBtn = document.getElementById("btn-mic");
+        micBtn.textContent = "🎤";
+        micBtn.className = "";
+        log("Disconnected successfully", "success");
       }
 
       // ── Auto-detect host for non-localhost ────────────────────────────────

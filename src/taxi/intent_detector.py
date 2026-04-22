@@ -100,22 +100,23 @@ def extract_pickup_time(text: str) -> str:
 
 
 def extract_destination(text: str) -> Optional[str]:
-    """
-    Extract destination from user message. Returns None if not found.
-    """
-    # "to the airport", "going to station", "drop me at mall"
+    # Strip common taxi booking prefixes before matching
+    text = re.sub(
+        r"^.*?\b(book|get|need|want|order|call|arrange)\b.{0,15}\b(taxi|cab|ride|auto)\b\s*",
+        "", text, flags=re.IGNORECASE
+    ).strip()
+
     m = re.search(
-        r"\b(?:to|at|going to|heading to|drop (?:me )?at|take me to)\s+(?:the\s+)?([a-zA-Z][a-zA-Z\s]{2,30}?)(?:\s*(?:please|now|asap|at\s+\d|\.|,|!).*)?$",
+        r"\b(?:to|at|going to|go to|want to go to|heading to|drop (?:me )?at|take me to)\s+(?:the\s+)?([a-zA-Z0-9][a-zA-Z0-9\s]{2,30}?)(?:\s*(?:please|now|asap|at\s+\d|\.|,|!).*)?$",
+
         text, re.IGNORECASE
     )
     if m:
         destination = m.group(1).strip()
-        # Filter out non-destination words
         skip = {"taxi", "cab", "ride", "auto", "car", "book", "me", "us", "a"}
         if destination.lower() not in skip and len(destination) > 2:
             return destination.title()
 
-    # Known destination keywords fallback
     keywords = ["airport", "station", "railway station", "bus stand", "bus stop",
                 "mall", "hospital", "metro", "market", "hotel"]
     for kw in keywords:
