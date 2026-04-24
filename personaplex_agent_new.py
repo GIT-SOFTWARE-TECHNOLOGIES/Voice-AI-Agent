@@ -144,6 +144,7 @@ class PersonaPlexAgent:
             logger.error(f"Connection error: {e}", exc_info=True)
         finally:
             logger.info("Agent stopped")
+            await user_transcriber.close()
             # ← NEW — save everything to SQLite on session end
             transcript.flush_to_db()
             logger.info(

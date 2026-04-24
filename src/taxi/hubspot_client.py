@@ -12,12 +12,13 @@ Required env vars:
   HUBSPOT_API_KEY       — your HubSpot private app token
   HUBSPOT_OBJECT_TYPE   — custom object API name (default: p245858895_hotel_guest)
   HUBSPOT_ROOM_PROPERTY — property name for room number (default: room_number)
+  HUBSPOT_TAXI_OBJECT_TYPE — taxi request custom object API name
 """
 
 import os
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 import requests
 from dotenv import load_dotenv
@@ -27,13 +28,17 @@ log = logging.getLogger("HubSpotClient")
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-HUBSPOT_API_KEY       = os.getenv("HUBSPOT_API_KEY", "")
-HUBSPOT_BASE_URL      = "https://api.hubapi.com"
-HUBSPOT_ROOM_PROPERTY = os.getenv("HUBSPOT_ROOM_PROPERTY", "room_number")
-HUBSPOT_OBJECT_TYPE   = os.getenv("HUBSPOT_OBJECT_TYPE", "p245858895_hotel_guest")
+HUBSPOT_API_KEY          = os.getenv("HUBSPOT_API_KEY", "")
+HUBSPOT_BASE_URL         = "https://api.hubapi.com"
+HUBSPOT_ROOM_PROPERTY    = os.getenv("HUBSPOT_ROOM_PROPERTY", "room_number")
+HUBSPOT_OBJECT_TYPE      = os.getenv("HUBSPOT_OBJECT_TYPE", "p245858895_hotel_guest")
+HUBSPOT_TAXI_OBJECT_TYPE = os.getenv("HUBSPOT_TAXI_OBJECT_TYPE", "")
 
 # Properties to fetch from Hotel Guest custom object
 FETCH_PROPERTIES = ["full_name", "email", "phone", HUBSPOT_ROOM_PROPERTY]
+
+# Properties to fetch from Taxi Request custom object
+TAXI_FETCH_PROPERTIES = ["room_number", "destination", "pickup_time", "status"]
 
 HEADERS = lambda: {
     "Authorization": f"Bearer {HUBSPOT_API_KEY}",
@@ -41,7 +46,7 @@ HEADERS = lambda: {
 }
 
 
-# ── Result model ───────────────────────────────────────────────────────────────
+# ── Guest result model ─────────────────────────────────────────────────────────
 
 @dataclass
 class GuestLookupResult:
@@ -54,13 +59,23 @@ class GuestLookupResult:
     error:       Optional[str] = None
 
 
+# ── Taxi request model ─────────────────────────────────────────────────────────
+
+@dataclass
+class TaxiRequestRecord:
+    hubspot_id:  str
+    room_number: Optional[str] = None
+    destination: Optional[str] = None
+    pickup_time: Optional[str] = None
+    status:      Optional[str] = None
+
+
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
 def _parse_guest(record: dict, fallback_room: Optional[str] = None, fallback_phone: Optional[str] = None) -> GuestLookupResult:
     """Extract guest fields from a HubSpot custom object record."""
     props = record.get("properties", {})
 
-    # full_name is the custom property name on Hotel Guest object
     name  = props.get("full_name", "") or None
     email = props.get("email", "") or None
 
@@ -118,7 +133,7 @@ def _search_guests(filter_property: str, filter_value: str) -> Optional[dict]:
         return None
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# ── Guest public API ───────────────────────────────────────────────────────────
 
 def fetch_guest_by_room(room_number: str) -> GuestLookupResult:
     """Look up a guest by their room number in Hotel Guest custom object."""
@@ -176,3 +191,73 @@ def fetch_guest(room_number: Optional[str] = None, phone: Optional[str] = None) 
         result = fetch_guest_by_phone(phone)
 
     return result
+
+
+# ── Taxi Request public API ────────────────────────────────────────────────────
+
+def fetch_pending_taxi_requests() -> List[TaxiRequestRecord]:
+    """Poll HubSpot Taxi Request object for records with status = pending."""
+    if not HUBSPOT_API_KEY:
+        log.warning("HUBSPOT_API_KEY not set")
+        return []
+
+    if not HUBSPOT_TAXI_OBJECT_TYPE:
+        log.warning("HUBSPOT_TAXI_OBJECT_TYPE not set — skipping poll")
+        return []
+
+    url  = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{HUBSPOT_TAXI_OBJECT_TYPE}/search"
+    body = {
+        "filterGroups": [
+            {
+                "filters": [
+                    {
+                        "propertyName": "status",
+                        "operator":     "EQ",
+                        "value":        "pending",
+                    }
+                ]
+            }
+        ],
+        "properties": TAXI_FETCH_PROPERTIES,
+        "limit": 10,
+    }
+
+    try:
+        r = requests.post(url, json=body, headers=HEADERS(), timeout=10)
+        r.raise_for_status()
+        results = r.json().get("results", [])
+        records = []
+        for rec in results:
+            props = rec.get("properties", {})
+            records.append(TaxiRequestRecord(
+                hubspot_id  = rec["id"],
+                room_number = props.get("room_number") or None,
+                destination = props.get("destination") or None,
+                pickup_time = props.get("pickup_time") or None,
+                status      = props.get("status") or None,
+            ))
+        log.info(f"HubSpot: found {len(records)} pending taxi requests")
+        return records
+    except Exception as e:
+        log.error(f"fetch_pending_taxi_requests failed: {e}")
+        return []
+
+
+def update_taxi_status(hubspot_id: str, status: str, booking_id: Optional[str] = None) -> bool:
+    """Update Taxi Request object status in HubSpot."""
+    if not HUBSPOT_TAXI_OBJECT_TYPE:
+        return False
+
+    url        = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{HUBSPOT_TAXI_OBJECT_TYPE}/{hubspot_id}"
+    properties = {"status": status}
+    if booking_id:
+        properties["booking_id"] = booking_id
+
+    try:
+        r = requests.patch(url, json={"properties": properties}, headers=HEADERS(), timeout=10)
+        r.raise_for_status()
+        log.info(f"HubSpot: taxi {hubspot_id} status → {status}")
+        return True
+    except Exception as e:
+        log.error(f"update_taxi_status failed: {e}")
+        return False

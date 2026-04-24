@@ -17,6 +17,8 @@ import uuid
 import logging
 from dataclasses import dataclass
 from typing import Optional, List
+import itertools
+
 
 import requests
 from dotenv import load_dotenv
@@ -41,6 +43,8 @@ DRIVER_POOL: List[dict] = [
     {"name": "Suresh Patil", "phone": "9234567890", "vehicle": "KA 02 CD 5678"},
     {"name": "Mohan Das",    "phone": "9345678901", "vehicle": "KA 03 EF 9012"},
 ]
+_driver_cycle = itertools.cycle(DRIVER_POOL)  
+driver = next(_driver_cycle) 
 
 
 # ── Guest data model ───────────────────────────────────────────────────────────

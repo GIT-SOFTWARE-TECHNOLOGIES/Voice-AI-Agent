@@ -1,171 +1,196 @@
 """
-UserTranscriber
-===============
-Segments user audio from bridge._handle_stream() into utterances using
-RMS-based VAD (same logic already in bridge.py), then transcribes each
-utterance locally with faster-whisper — NO external STT API.
+UserTranscriber — Deepgram STT (Fixed v2)
+==========================================
+Drop-in replacement for the Whisper-based UserTranscriber.
+Streams LiveKit audio to Deepgram in real-time.
 
-Install the one extra dependency:
-    pip install faster-whisper
+Key fix: dg_client.listen.asynclive (async WebSocket client) REQUIRES
+async def handlers — plain def returns None which crashes the SDK with
+"a coroutine was expected, got None".
 
-Model sizes vs speed on CPU (choose based on your server):
-    tiny   ~39M params  — fastest, ~0.3s/utt,  rough quality
-    base   ~74M params  — good balance, ~0.6s/utt  ← recommended
-    small  ~244M params — better, ~1.5s/utt
-    (on RunPod GPU, even 'medium' runs in real-time)
+Setup:
+  pip install deepgram-sdk==3.10.1
+  Add DEEPGRAM_API_KEY to your .env file
 """
 
 import asyncio
 import logging
-import time
+import os
 from typing import Callable, Optional
 
 import numpy as np
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 logger = logging.getLogger("transcript.user")
 
-# ── Audio constants (must match bridge.py) ─────────────────────────────────
-LIVEKIT_SAMPLE_RATE = 48_000   # Hz — what LiveKit gives us
-# Whisper wants 16kHz mono float32
-WHISPER_SAMPLE_RATE = 16_000
+# ── Audio constants ────────────────────────────────────────────────────────────
+LIVEKIT_SAMPLE_RATE  = 48_000   # Hz — what LiveKit gives us
+DEEPGRAM_SAMPLE_RATE = 16_000   # Hz — what Deepgram expects
 
-# ── VAD tuning ──────────────────────────────────────────────────────────────
-RMS_SPEECH_THRESHOLD = 500     # same value already used in bridge.py
-SILENCE_FRAMES_CUTOFF = 12    # ~12 × 20ms LiveKit frames = ~240ms silence
-                               # → end of utterance detected
-MIN_SPEECH_FRAMES = 5          # ignore utterances shorter than ~100ms (noise)
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
 
 
 class UserTranscriber:
     """
-    Drop-in component that wraps faster-whisper.
+    Drop-in replacement for the Whisper-based UserTranscriber.
+    Same interface — push_frame() is identical.
 
-    Usage (inside bridge._handle_stream):
-    --------------------------------------
-    transcriber = UserTranscriber(
-        on_transcript=transcript_manager.add_user_turn,
-        model_size="base",
-        language="en",
-    )
-    async for frame_event in stream:
-        pcm_int16 = np.frombuffer(frame_event.frame.data, dtype=np.int16)
-        await transcriber.push_frame(pcm_int16)
+    Uses dg_client.listen.asynclive (async WebSocket client).
+    This variant requires ALL event handlers to be async def.
     """
 
     def __init__(
         self,
         on_transcript: Callable[[str], None],
-        model_size: str = "base",
+        model_size: str = "base",       # ignored — kept for API compatibility
         language: Optional[str] = "en",
-        device: str = "cpu",
-        compute_type: str = "int8",
+        device: str = "cpu",            # ignored — kept for API compatibility
+        compute_type: str = "int8",     # ignored — kept for API compatibility
     ):
-        """
-        Parameters
-        ----------
-        on_transcript : callback receiving the transcribed string
-        model_size    : 'tiny' | 'base' | 'small' | 'medium'
-        language      : ISO 639-1 code or None for auto-detect
-        device        : 'cpu' | 'cuda'  (use 'cuda' on RunPod GPU)
-        compute_type  : 'int8' (CPU) | 'float16' (GPU)
-        """
-        self._on_transcript = on_transcript
-        self._language = language
+        self._on_transcript  = on_transcript
+        self._language       = language or "en"
+        self._dg_connection  = None
+        self._connected      = False
+        self._started        = False
 
-        # Load Whisper model once at startup
-        logger.info(
-            "Loading faster-whisper model='%s' device='%s' compute='%s'",
-            model_size, device, compute_type,
-        )
-        try:
-            from faster_whisper import WhisperModel
-            self._model = WhisperModel(
-                model_size, device=device, compute_type=compute_type
-            )
-            logger.info("faster-whisper model loaded ✓")
-        except ImportError:
+        if not DEEPGRAM_API_KEY:
             raise RuntimeError(
-                "faster-whisper not installed. Run: pip install faster-whisper"
+                "DEEPGRAM_API_KEY not set in .env — "
+                "get a free key at deepgram.com"
             )
 
-        # ── VAD state ─────────────────────────────────────────────────────────
-        self._speech_frames: list[np.ndarray] = []   # raw 48kHz int16 frames
-        self._silence_count = 0
-        self._in_speech = False
+        logger.info(
+            "UserTranscriber: Deepgram STT initialised (language=%s)", self._language
+        )
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # ── Called from bridge._handle_stream on every audio frame ────────────────
 
     async def push_frame(self, pcm_int16: np.ndarray):
         """
         Push one LiveKit audio frame (48kHz int16 mono).
-        Call this for every frame in bridge._handle_stream().
-        Non-blocking — transcription runs in a thread pool executor.
+        Identical interface to the Whisper version.
         """
-        rms = float(np.sqrt(np.mean(pcm_int16.astype(np.float32) ** 2)))
-        is_speech = rms > RMS_SPEECH_THRESHOLD
+        # Start connection on first frame (inside running event loop)
+        if not self._started:
+            self._started = True
+            asyncio.ensure_future(self._start_deepgram())
+            logger.info("Deepgram connection starting...")
 
-        if is_speech:
-            self._silence_count = 0
-            if not self._in_speech:
-                self._in_speech = True
-                logger.debug("VAD: speech start  rms=%.0f", rms)
-            self._speech_frames.append(pcm_int16)
+        # Drop frames silently until connection is ready
+        if not self._connected or self._dg_connection is None:
+            return
 
-        else:
-            if self._in_speech:
-                self._silence_count += 1
-                self._speech_frames.append(pcm_int16)  # keep trailing silence
+        try:
+            audio_16k = self._resample(pcm_int16)
+            await self._dg_connection.send(audio_16k.tobytes())
+        except Exception as e:
+            logger.warning("Deepgram send error: %s", e)
 
-                if self._silence_count >= SILENCE_FRAMES_CUTOFF:
-                    # End of utterance — transcribe
-                    if len(self._speech_frames) >= MIN_SPEECH_FRAMES:
-                        frames_copy = list(self._speech_frames)
-                        asyncio.ensure_future(
-                            self._transcribe_utterance(frames_copy)
-                        )
-                    self._speech_frames = []
-                    self._silence_count = 0
-                    self._in_speech = False
+    # ── Deepgram connection ────────────────────────────────────────────────────
 
-    # ── Internal ──────────────────────────────────────────────────────────────
+    async def _start_deepgram(self):
+        """Start Deepgram async streaming WebSocket connection."""
+        try:
+            from deepgram import DeepgramClient, LiveTranscriptionEvents, LiveOptions
 
-    async def _transcribe_utterance(self, frames: list[np.ndarray]):
+            dg_client = DeepgramClient(DEEPGRAM_API_KEY)
+
+            # asynclive = async WebSocket client → handlers MUST be async def
+            self._dg_connection = dg_client.listen.asynclive.v("1")
+
+            self._dg_connection.on(LiveTranscriptionEvents.Transcript, self._on_transcript_event)
+            self._dg_connection.on(LiveTranscriptionEvents.Error,      self._on_error_event)
+            self._dg_connection.on(LiveTranscriptionEvents.Close,      self._on_close_event)
+
+            options = LiveOptions(
+                model="nova-2",
+                language=self._language,
+                encoding="linear16",
+                sample_rate=DEEPGRAM_SAMPLE_RATE,
+                channels=1,
+                punctuate=True,
+                smart_format=True,
+                interim_results=True,       # required for utterance_end_ms to work
+                utterance_end_ms="1000",    # 1s silence = end of utterance
+                vad_events=True,
+                endpointing=300,
+            )
+
+            started = await self._dg_connection.start(options)
+            if started:
+                self._connected = True
+                logger.info("Deepgram streaming connected ✓")
+            else:
+                logger.error("Deepgram connection failed to start")
+
+        except ImportError:
+            raise RuntimeError(
+                "deepgram-sdk not installed. Run: pip install deepgram-sdk==3.10.1"
+            )
+        except Exception as e:
+            logger.error("Deepgram connection error: %s", e)
+
+    # ── Event handlers — MUST be async def for asynclive client ───────────────
+
+    async def _on_transcript_event(self, *args, **kwargs):
         """
-        Runs faster-whisper in a thread-pool executor so it doesn't
-        block the asyncio event loop.
+        Handles Deepgram Transcript events.
+        MUST be async def — asynclive client awaits these handlers.
         """
-        loop = asyncio.get_event_loop()
-        text = await loop.run_in_executor(None, self._run_whisper, frames)
-        if text:
-            self._on_transcript(text)
+        try:
+            result = kwargs.get("result") or (args[1] if len(args) > 1 else None)
+            if result is None:
+                return
 
-    def _run_whisper(self, frames: list[np.ndarray]) -> str:
-        """Synchronous — called from executor thread."""
-        t0 = time.perf_counter()
+            transcript = (
+                result.channel.alternatives[0].transcript
+                if result.channel and result.channel.alternatives
+                else ""
+            )
 
-        # 1. Concatenate all int16 frames
-        audio_int16 = np.concatenate(frames)
+            # speech_final=True means end of complete utterance
+            # interim results (speech_final=False) are ignored
+            if result.speech_final and transcript.strip():
+                logger.info("Deepgram transcript: '%s'", transcript)
+                self._on_transcript(transcript.strip())
 
-        # 2. Convert 48kHz int16 → 16kHz float32 (Whisper requirement)
-        audio_f32 = audio_int16.astype(np.float32) / 32768.0
-        target_len = int(len(audio_f32) * WHISPER_SAMPLE_RATE / LIVEKIT_SAMPLE_RATE)
-        x_old = np.linspace(0, len(audio_f32) - 1, len(audio_f32))
-        x_new = np.linspace(0, len(audio_f32) - 1, target_len)
-        audio_16k = np.interp(x_new, x_old, audio_f32).astype(np.float32)
+        except Exception as e:
+            logger.warning("Deepgram transcript handler error: %s", e)
 
-        # 3. Transcribe
-        segments, info = self._model.transcribe(
-            audio_16k,
-            language=self._language,
-            beam_size=1,           # fastest
-            vad_filter=True,       # built-in Silero VAD inside Whisper
-            vad_parameters=dict(min_silence_duration_ms=300),
-        )
-        text = " ".join(s.text for s in segments).strip()
+    async def _on_error_event(self, *args, **kwargs):
+        """MUST be async def — asynclive client awaits these handlers."""
+        error = kwargs.get("error") or (args[1] if len(args) > 1 else "unknown")
+        logger.error("Deepgram error: %s", error)
+        self._connected = False
 
-        elapsed = (time.perf_counter() - t0) * 1000
-        logger.info(
-            "Whisper transcribed in %.0fms → '%s'  lang=%s",
-            elapsed, text, info.language,
-        )
-        return text
+    async def _on_close_event(self, *args, **kwargs):
+        """MUST be async def — asynclive client awaits these handlers."""
+        logger.info("Deepgram connection closed")
+        self._connected = False
+
+    # ── Session cleanup ────────────────────────────────────────────────────────
+
+    async def close(self):
+        """
+        Close Deepgram connection gracefully.
+        Called in personaplex_agent_new.py finally block
+        before transcript.flush_to_db().
+        """
+        if self._dg_connection and self._connected:
+            try:
+                await self._dg_connection.finish()
+                logger.info("Deepgram connection closed gracefully")
+            except Exception as e:
+                logger.warning("Deepgram close error: %s", e)
+        self._connected = False
+
+    # ── Audio helper ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _resample(pcm_int16: np.ndarray) -> np.ndarray:
+        """Resample 48kHz int16 → 16kHz int16 by decimation (factor of 3)."""
+        if len(pcm_int16) == 0:
+            return pcm_int16
+        return pcm_int16[::3].astype(np.int16)

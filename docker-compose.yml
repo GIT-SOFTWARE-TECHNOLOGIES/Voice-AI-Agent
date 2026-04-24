@@ -1,5 +1,5 @@
 services:
- 
+
   # ── Redis (required by LiveKit) ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -15,7 +15,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
- 
+
   # ── LiveKit Server ───────────────────────────────────────────────────────────
   livekit:
     image: livekit/livekit-server:latest
@@ -38,7 +38,7 @@ services:
       retries: 10
       start_period: 10s
 
-#livekit-sip
+  # ── LiveKit SIP ──────────────────────────────────────────────────────────────
   livekit-sip:
     image: livekit/sip:latest
     container_name: livekit-sip
@@ -49,8 +49,8 @@ services:
     depends_on:
       livekit:
         condition: service_healthy
-    restart: unless-stopped    
- 
+    restart: unless-stopped
+
   # ── Token Server ─────────────────────────────────────────────────────────────
   token-server:
     build:
@@ -71,7 +71,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
- 
+
   # ── PersonaPlex Agent ────────────────────────────────────────────────────────
   agent:
     build:
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./transcripts:/app/transcripts
- 
+
   # ── Test UI (serves test_personaplex.html) ───────────────────────────────────
   test-ui:
     image: nginx:alpine
@@ -102,16 +102,21 @@ services:
     depends_on:
       - livekit
     restart: unless-stopped
-  # ── Taxi Worker ──────────────────────────────────────────────────────────────
-  taxi-worker:
+
+  # ── Taxi Poller ──────────────────────────────────────────────────────────────
+  taxi-poller:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: taxi-worker
-    command: ["python", "-c", "import logging; logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s'); print('Taxi worker loaded — running inline with agent')"]
+    container_name: personaplex-taxi-poller
+    command: ["python", "run_taxi_poller.py"]
     env_file:
       - .env
-    restart: unless-stopped  
- 
+    depends_on:
+      token-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ── Named Volumes ─────────────────────────────────────────────────────────────
 volumes:
   livekit_redis_data:

@@ -43,46 +43,69 @@ def get_headers() -> dict:
     }
 
 
-def get_object_type() -> str:
-    """
-    Returns the custom object type string HubSpot assigned after schema creation.
-    This value is unique per HubSpot account — you get it by running
-    create_schema() once and copying the returned object type.
-    """
-    object_type = os.environ.get("HUBSPOT_SERVICE_OBJECT_TYPE")
-    if not object_type:
-        raise EnvironmentError(
-            "HUBSPOT_OBJECT_TYPE is not set.\n"
-            "Run: python -m src.crm.hubspot_connector --setup\n"
-            "Then copy the object type from the output and add it to your .env."
-        )
-    return object_type
-
-
-def build_payload(data: dict) -> dict:
-    """
-    Translates our CRM-agnostic JSON into HubSpot's expected payload format.
-
-    HubSpot wraps all field values inside a "properties" key.
-    Field names must exactly match the property names defined in the schema.
-    Items (a list) is serialised as a JSON string since HubSpot
-    text fields don't support nested structures natively.
-    """
-    return {
-        "properties": {
-            "room_number":       data.get("room_number"),
-            "service_type":      data.get("service_type"),
-            "items":             json.dumps(data.get("items", [])),
-            "pickup_time":       data.get("pickup_time"),
-            "delivery_deadline": data.get("delivery_deadline"),
-            "special_notes":     data.get("special_notes"),
-            "urgency":           data.get("urgency", "normal"),
-            "status":            data.get("status", "pending"),
-            "confidence":        data.get("confidence"),
-            "session_id":        data.get("session_id"),   # ← new
-            "room_name":         data.get("room_name"),
-        }
+def get_object_type(service_type: str) -> str:
+    env_map = {
+        "taxi":        "HUBSPOT_TAXI_OBJECT_TYPE",
+        "laundry":     "HUBSPOT_LAUNDRY_OBJECT_TYPE",
+        "food_order":  "HUBSPOT_FOOD_OBJECT_TYPE",
+        "maintenance": "HUBSPOT_MAINTENANCE_OBJECT_TYPE",
+        "payment":     "HUBSPOT_PAYMENT_OBJECT_TYPE",   
     }
+    env_key = env_map.get(service_type)
+    if not env_key:
+        raise ValueError(f"Unknown service_type: '{service_type}'")
+    value = os.environ.get(env_key)
+    if not value:
+        raise EnvironmentError(f"{env_key} is not set in .env")
+    return value
+
+
+def build_taxi_payload(data):
+    return {"properties": {
+        "room_number":  data.get("room_number"),
+        "destination":  data.get("destination"),
+        "pickup_time":  data.get("pickup_time"),
+        "status":       data.get("status", "pending"),
+    }}
+
+def build_laundry_payload(data):
+    return {"properties": {
+        "room_number":       data.get("room_number"),
+        "items":             json.dumps(data.get("items", [])),
+        "pickup_time":       data.get("pickup_time"),
+        "delivery_deadline": data.get("delivery_deadline"),
+        "special_notes":     data.get("special_notes"),
+        "urgency":           data.get("urgency", "normal"),
+        "status":            data.get("status", "pending"),
+    }}
+
+def build_food_payload(data):
+    return {"properties": {
+        "room_number":       data.get("room_number"),
+        "items":             json.dumps(data.get("items", [])),
+        "delivery_deadline": data.get("delivery_deadline"),
+        "special_notes":     data.get("special_notes"),
+        "urgency":           data.get("urgency", "normal"),
+        "status":            data.get("status", "pending"),
+    }}
+
+def build_payment_payload(data):
+    return {"properties": {
+        "room_number":    data.get("room_number"),
+        "amount":         data.get("amount"),
+        "payment_method": data.get("payment_method"),
+        "payment_status": data.get("payment_status"),
+        "status":         data.get("status", "pending"),
+    }}
+
+def build_maintenance_payload(data):
+    return {"properties": {
+        "room_number":       data.get("room_number"),
+        "issue_description": data.get("issue_description"),
+        "urgency":           data.get("urgency", "normal"),
+        "pickup_time":       data.get("pickup_time"),
+        "status":            data.get("status", "pending"),
+    }}
 
 
 def update_schema():
@@ -103,89 +126,147 @@ def update_schema():
         else:
             print(f"  ✗ Failed: {prop['name']} — {response.text}")
 
+PAYLOAD_BUILDERS = {
+    "taxi":        build_taxi_payload,
+    "laundry":     build_laundry_payload,
+    "food_order":  build_food_payload,
+    "maintenance": build_maintenance_payload,
+    "payment":     build_payment_payload,
+}
+
 def push(data: dict) -> dict:
-    """
-    Main function — creates a Hotel Service Request record in HubSpot.
-    Returns the created record as returned by HubSpot's API.
-    """
-    object_type = get_object_type()
-    endpoint    = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{object_type}"
-    headers     = get_headers()
-    payload     = build_payload(data)
+    service_type = data.get("service_type")
+    object_type  = get_object_type(service_type)
+    endpoint     = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{object_type}"
+    payload      = PAYLOAD_BUILDERS[service_type](data)
 
-    response = requests.post(endpoint, headers=headers, json=payload)
-
+    response = requests.post(endpoint, headers=get_headers(), json=payload)
     if not response.ok:
         raise ConnectionError(
             f"HubSpot API returned {response.status_code}.\n"
             f"Response: {response.text}"
         )
-
     created_record = response.json()
-    print(f"  ✓ Record created in HubSpot. ID: {created_record.get('id')}")
+    print(f"  ✓ {service_type} record created. ID: {created_record.get('id')}")
     return created_record
 
 
 # ── One-time schema setup ─────────────────────────────────────────────────────
 
-def create_schema() -> str:
-    """
-    Registers the Hotel Service Request custom object schema in HubSpot.
-    Run this ONCE before using push() for the first time.
-
-    Returns the object type string you need to save in .env as HUBSPOT_OBJECT_TYPE.
-    """
+def create_taxi_schema() -> str:
     headers  = get_headers()
     endpoint = f"{HUBSPOT_BASE_URL}/crm/v3/schemas"
-
     schema = {
-        "name": "hotel_service_request",
-        "labels": {
-            "singular": "Hotel Service Request",
-            "plural":   "Hotel Service Requests",
-        },
+        "name": "taxi_request",
+        "labels": {"singular": "Taxi Request", "plural": "Taxi Requests"},
         "primaryDisplayProperty": "room_number",
         "properties": [
-            # Core identification
-            {"name": "room_number",       "label": "Room Number",       "type": "string", "fieldType": "text"},
-            {"name": "service_type",      "label": "Service Type",      "type": "string", "fieldType": "text"},
+            {"name": "room_number",  "label": "Room Number",  "type": "string", "fieldType": "text"},
+            {"name": "destination",  "label": "Destination",  "type": "string", "fieldType": "text"},
+            {"name": "pickup_time",  "label": "Pickup Time",  "type": "string", "fieldType": "text"},
+            {"name": "status",       "label": "Status",       "type": "string", "fieldType": "text"},
+        ],
+        "associatedObjects": [],
+    }
+    return _post_schema(schema, "HUBSPOT_TAXI_OBJECT_TYPE")
 
-            # Request details
+
+def create_payment_schema() -> str:
+    schema = {
+        "name": "payment_request",
+        "labels": {"singular": "Payment Request", "plural": "Payment Requests"},
+        "primaryDisplayProperty": "room_number",
+        "properties": [
+            {"name": "room_number",     "label": "Room Number",     "type": "string", "fieldType": "text"},
+            {"name": "amount",          "label": "Amount",          "type": "string", "fieldType": "text"},
+            {"name": "payment_method",  "label": "Payment Method",  "type": "string", "fieldType": "text"},
+            {"name": "payment_status",  "label": "Payment Status",  "type": "string", "fieldType": "text"},
+            {"name": "status",          "label": "Status",          "type": "string", "fieldType": "text"},
+        ],
+        "associatedObjects": [],
+    }
+    return _post_schema(schema, "HUBSPOT_PAYMENT_OBJECT_TYPE")
+
+
+def create_laundry_schema() -> str:
+    headers  = get_headers()
+    endpoint = f"{HUBSPOT_BASE_URL}/crm/v3/schemas"
+    schema = {
+        "name": "laundry_request",
+        "labels": {"singular": "Laundry Request", "plural": "Laundry Requests"},
+        "primaryDisplayProperty": "room_number",
+        "properties": [
+            {"name": "room_number",       "label": "Room Number",       "type": "string", "fieldType": "text"},
             {"name": "items",             "label": "Items",             "type": "string", "fieldType": "text"},
             {"name": "pickup_time",       "label": "Pickup Time",       "type": "string", "fieldType": "text"},
             {"name": "delivery_deadline", "label": "Delivery Deadline", "type": "string", "fieldType": "text"},
             {"name": "special_notes",     "label": "Special Notes",     "type": "string", "fieldType": "text"},
-
-            # Status fields
             {"name": "urgency",           "label": "Urgency",           "type": "string", "fieldType": "text"},
             {"name": "status",            "label": "Status",            "type": "string", "fieldType": "text"},
-            {"name": "confidence",        "label": "Confidence",        "type": "string", "fieldType": "text"},
         ],
         "associatedObjects": [],
     }
+    return _post_schema(schema, "HUBSPOT_LAUNDRY_OBJECT_TYPE")
 
-    print("Creating Hotel Service Request schema in HubSpot...")
-    response = requests.post(endpoint, headers=headers, json=schema)
 
+def create_food_schema() -> str:
+    headers  = get_headers()
+    endpoint = f"{HUBSPOT_BASE_URL}/crm/v3/schemas"
+    schema = {
+        "name": "food_order",
+        "labels": {"singular": "Food Order", "plural": "Food Orders"},
+        "primaryDisplayProperty": "room_number",
+        "properties": [
+            {"name": "room_number",       "label": "Room Number",       "type": "string", "fieldType": "text"},
+            {"name": "items",             "label": "Items",             "type": "string", "fieldType": "text"},
+            {"name": "delivery_deadline", "label": "Delivery Deadline", "type": "string", "fieldType": "text"},
+            {"name": "special_notes",     "label": "Special Notes",     "type": "string", "fieldType": "text"},
+            {"name": "urgency",           "label": "Urgency",           "type": "string", "fieldType": "text"},
+            {"name": "status",            "label": "Status",            "type": "string", "fieldType": "text"},
+        ],
+        "associatedObjects": [],
+    }
+    return _post_schema(schema, "HUBSPOT_FOOD_OBJECT_TYPE")
+
+
+def create_maintenance_schema() -> str:
+    headers  = get_headers()
+    endpoint = f"{HUBSPOT_BASE_URL}/crm/v3/schemas"
+    schema = {
+        "name": "maintenance_request",
+        "labels": {"singular": "Maintenance Request", "plural": "Maintenance Requests"},
+        "primaryDisplayProperty": "room_number",
+        "properties": [
+            {"name": "room_number",       "label": "Room Number",       "type": "string", "fieldType": "text"},
+            {"name": "issue_description", "label": "Issue Description", "type": "string", "fieldType": "text"},
+            {"name": "urgency",           "label": "Urgency",           "type": "string", "fieldType": "text"},
+            {"name": "pickup_time",       "label": "Pickup Time",       "type": "string", "fieldType": "text"},
+            {"name": "status",            "label": "Status",            "type": "string", "fieldType": "text"},
+        ],
+        "associatedObjects": [],
+    }
+    return _post_schema(schema, "HUBSPOT_MAINTENANCE_OBJECT_TYPE")
+
+
+def _post_schema(schema: dict, env_key: str) -> str:
+    """Shared logic for posting any schema and printing the env variable to save."""
+    response = requests.post(
+        f"{HUBSPOT_BASE_URL}/crm/v3/schemas",
+        headers=get_headers(),
+        json=schema
+    )
+    name = schema["name"]
     if response.status_code == 201:
         result      = response.json()
         object_type = result.get("objectTypeId") or result.get("name")
-        print(f"\n✓ Schema created successfully!")
-        print(f"\nAdd this to your .env file:")
-        print(f"  HUBSPOT_OBJECT_TYPE={object_type}")
+        print(f"✓ '{name}' schema created.")
+        print(f"  Add to .env: {env_key}={object_type}")
         return object_type
-
     elif response.status_code == 409:
-        print("Schema already exists — no action needed.")
-        print("If you don't have HUBSPOT_OBJECT_TYPE in your .env, check HubSpot")
-        print("under Settings → Data Model → Custom Objects for the object type ID.")
+        print(f"✗ '{name}' schema already exists.")
         return ""
-
     else:
-        raise ConnectionError(
-            f"Schema creation failed with {response.status_code}.\n"
-            f"Response: {response.text}"
-        )
+        raise ConnectionError(f"'{name}' failed {response.status_code}: {response.text}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -195,89 +276,8 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
-
-    if "--update-schema" in sys.argv:
-        update_schema()
-
-    # Run with --setup flag to create the schema first
-    # Run without flags to test pushing a record
-    if "--setup" in sys.argv:
-        create_schema()
-
-    else:
-        # Test each of the 4 service types to make sure all work
-        test_cases = [
-            {
-                "label": "Laundry",
-                "data": {
-                    "room_number": "302",
-                    "service_type": "laundry",
-                    "items": [{"name": "shirt", "quantity": 2}, {"name": "trousers", "quantity": 1}],
-                    "pickup_time": "within the hour",
-                    "delivery_deadline": "tomorrow before 10am",
-                    "special_notes": None,
-                    "urgency": "normal",
-                    "status": "pending",
-                    "confidence": "high",
-                }
-            },
-            {
-                "label": "Room Service",
-                "data": {
-                    "room_number": "215",
-                    "service_type": "room_service",
-                    "items": [{"name": "bath towel", "quantity": 2}, {"name": "pillow", "quantity": 2}],
-                    "pickup_time": "after 11am",
-                    "delivery_deadline": None,
-                    "special_notes": "Also needs toiletry replacement — shampoo and body wash",
-                    "urgency": "normal",
-                    "status": "pending",
-                    "confidence": "high",
-                }
-            },
-            {
-                "label": "Food & Beverages",
-                "data": {
-                    "room_number": "408",
-                    "service_type": "food_and_beverages",
-                    "items": [
-                        {"name": "club sandwich", "quantity": 1},
-                        {"name": "tomato soup", "quantity": 1},
-                        {"name": "still water (large)", "quantity": 1},
-                        {"name": "chocolate cake", "quantity": 1},
-                    ],
-                    "pickup_time": None,
-                    "delivery_deadline": "within 30 minutes",
-                    "special_notes": "Nut allergy — all items must be completely nut-free. Charge to room.",
-                    "urgency": "normal",
-                    "status": "pending",
-                    "confidence": "high",
-                }
-            },
-            {
-                "label": "Maintenance",
-                "data": {
-                    "room_number": "517",
-                    "service_type": "maintenance",
-                    "items": [
-                        {"name": "AC not cooling", "quantity": 1},
-                        {"name": "bathroom light out", "quantity": 1},
-                    ],
-                    "pickup_time": "as soon as possible",
-                    "delivery_deadline": "within 20 minutes",
-                    "special_notes": "Guest will be in room for next 2 hours. AC blowing warm air only.",
-                    "urgency": "urgent",
-                    "status": "pending",
-                    "confidence": "high",
-                }
-            },
-        ]
-
-        print(f"Testing HubSpot connector with all 4 service types...\n")
-        for case in test_cases:
-            print(f"── {case['label']} ──")
-            try:
-                record = push(case["data"])
-                print(f"  Done. Record ID: {record.get('id')}\n")
-            except Exception as e:
-                print(f"  ✗ Failed: {e}\n")
+    if "--setup-taxi"        in sys.argv: create_taxi_schema()
+    if "--setup-laundry"     in sys.argv: create_laundry_schema()
+    if "--setup-food"        in sys.argv: create_food_schema()
+    if "--setup-maintenance" in sys.argv: create_maintenance_schema()
+    if "--setup-payment"     in sys.argv: create_payment_schema()

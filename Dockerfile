@@ -17,14 +17,17 @@ WORKDIR /app
 # Install Python dependencies first (layer cache)
 COPY requirements_personaplex.txt .
 RUN pip install -r requirements_personaplex.txt
-RUN pip install scipy sphn
+
+RUN pip install scipy sphn 
+RUN pip install deepgram-sdk==3.10.1
 
 # Copy project source
 COPY src/ ./src/
 COPY personaplex_agent_new.py .
 COPY token_server.py .
 COPY crm_extractor.py .
-COPY taxi_client.py .
+COPY run_taxi_poller.py .    
+
 
 COPY .env .
 
