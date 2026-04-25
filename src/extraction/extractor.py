@@ -68,6 +68,29 @@ Always set status to "pending".
 urgency is "urgent" if guest expressed urgency or discomfort, otherwise "normal".
 """
 
+MENU = {
+    "cheese pizza":  350,
+    "burger":        199,
+    "french fries":  99,
+    "sandwich":      149,
+    "cold coffee":   129,
+}
+
+def enrich_food_items(items: list[dict]) -> tuple[list[dict], int]:
+    enriched = []
+    for item in items:
+        name = item["name"].lower().strip()
+        if name not in MENU:
+            raise ValueError(f"Unknown menu item: '{item['name']}'")
+        enriched.append({
+            "name":     item["name"],
+            "quantity": item["quantity"],
+            "price":    MENU[name],
+            "subtotal": MENU[name] * item["quantity"],
+        })
+    total = sum(i["subtotal"] for i in enriched)
+    return enriched, total
+
 
 
 def parse_jsonl_transcript(raw: str) -> tuple[str, dict]:
@@ -129,6 +152,9 @@ def extract(transcript: str, metadata: dict = None) -> dict:
     if metadata:
         extracted["session_id"] = metadata.get("session_id")
         extracted["room_name"]  = metadata.get("room")
+
+    if extracted.get("service_type") == "food_order":
+        extracted["items"], extracted["total_price"] = enrich_food_items(extracted["items"])
 
     return extracted
     
