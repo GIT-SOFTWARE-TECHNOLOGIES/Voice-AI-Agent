@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
 
   # ── Redis (required by LiveKit) ─────────────────────────────────────────────
@@ -90,7 +92,7 @@ services:
     volumes:
       - ./transcripts:/app/transcripts
 
-  # ── Test UI (serves test_personaplex.html) ───────────────────────────────────
+  # ── Test UI ──────────────────────────────────────────────────────────────────
   test-ui:
     image: nginx:alpine
     container_name: personaplex-test-ui
@@ -117,6 +119,210 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── HubSpot Payment Poller ───────────────────────────────────────────────────
+  hubspot-payment-poller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hubspot-payment-poller
+    command: ["python", "run_hubspot_payment_poller.py"]
+    env_file:
+      - .env
+    depends_on:
+      token-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Payment Web Server ───────────────────────────────────────────────────────
+  payment-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: payu-payment-server
+    command: ["python", "payment_server.py"]
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 # ── Named Volumes ─────────────────────────────────────────────────────────────
 volumes:
   livekit_redis_data:
+  payu_data:
+
+
+
+
+
+
+
+
+
+
+
+# services:
+
+#   # ── Redis (required by LiveKit) ─────────────────────────────────────────────
+#   redis:
+#     image: redis:7-alpine
+#     container_name: livekit-redis
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - livekit_redis_data:/data
+#     command: redis-server --appendonly yes
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 5s
+#       timeout: 3s
+#       retries: 10
+
+#   # ── LiveKit Server ───────────────────────────────────────────────────────────
+#   livekit:
+#     image: livekit/livekit-server:latest
+#     container_name: livekit
+#     ports:
+#       - "7880:7880"
+#       - "7881:7881"
+#       - "50100-50200:50100-50200/udp"
+#     command: ["--config", "/config/livekit.yaml"]
+#     volumes:
+#       - ./docker-files-livekit/livekit.yaml:/config/livekit.yaml
+#     depends_on:
+#       redis:
+#         condition: service_healthy
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD-SHELL", "wget -qO- http://localhost:7880 || exit 1"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 10
+#       start_period: 10s
+
+#   # ── LiveKit SIP ──────────────────────────────────────────────────────────────
+#   livekit-sip:
+#     image: livekit/sip:latest
+#     container_name: livekit-sip
+#     network_mode: host
+#     volumes:
+#       - ./docker-files-livekit/sip.yaml:/config/sip.yaml
+#     command: ["--config", "/config/sip.yaml"]
+#     depends_on:
+#       livekit:
+#         condition: service_healthy
+#     restart: unless-stopped
+
+#   # ── Token Server ─────────────────────────────────────────────────────────────
+#   token-server:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: personaplex-token-server
+#     command: ["python", "token_server.py"]
+#     ports:
+#       - "8080:8080"
+#     env_file:
+#       - .env
+#     depends_on:
+#       livekit:
+#         condition: service_healthy
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+#       interval: 5s
+#       timeout: 3s
+#       retries: 10
+
+#   # ── PersonaPlex Agent ────────────────────────────────────────────────────────
+#   agent:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: personaplex-agent
+#     command: ["python", "personaplex_agent_new.py", "--room", "personaplex-test"]
+#     env_file:
+#       - .env
+#     depends_on:
+#       livekit:
+#         condition: service_healthy
+#       token-server:
+#         condition: service_healthy
+#     restart: unless-stopped
+#     volumes:
+#       - ./transcripts:/app/transcripts
+
+#   # ── Test UI (serves test_personaplex.html) ───────────────────────────────────
+#   test-ui:
+#     image: nginx:alpine
+#     container_name: personaplex-test-ui
+#     ports:
+#       - "8000:80"
+#     volumes:
+#       - ./test_personaplex.html:/usr/share/nginx/html/index.html:ro
+#       - ./docker-files-livekit/nginx-test.conf:/etc/nginx/conf.d/default.conf:ro
+#     depends_on:
+#       - livekit
+#     restart: unless-stopped
+
+#   # ── Taxi Poller ──────────────────────────────────────────────────────────────
+#   taxi-poller:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: personaplex-taxi-poller
+#     command: ["python", "run_taxi_poller.py"]
+#     env_file:
+#       - .env
+#     depends_on:
+#       token-server:
+#         condition: service_healthy
+#     restart: unless-stopped
+
+#   # ── HubSpot Payment Poller ───────────────────────────────────────────────────
+#   hubspot-payment-poller:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: hubspot-payment-poller
+#     command: ["python", "run_hubspot_payment_poller.py"]
+#     env_file:
+#       - .env
+#     depends_on:
+#       token-server:
+#         condition: service_healthy
+#     restart: unless-stopped
+
+
+# # ── Payment Web Server ───────────────────────────────────────────────────────
+# payment-server:
+#     build:
+#     context: .
+#     dockerfile: Dockerfile
+#     container_name: payu-payment-server
+#     command: ["python", "payment_server.py"]
+#     ports:
+#       - "9000:9000"
+#     env_file:
+#       - .env
+#     volumes:
+#       - ./data:/app/data
+#     restart: unless-stopped
+#     healthcheck:
+#       test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+#       interval: 5s
+#       timeout: 3s
+#       retries: 10
+
+# # ── Named Volumes ─────────────────────────────────────────────────────────────
+# volumes:
+#   livekit_redis_data:
+#   payu_data:

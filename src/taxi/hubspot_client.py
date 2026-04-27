@@ -194,18 +194,21 @@ def fetch_guest(room_number: Optional[str] = None, phone: Optional[str] = None) 
 
 
 # ── Taxi Request public API ────────────────────────────────────────────────────
-
 def fetch_pending_taxi_requests() -> List[TaxiRequestRecord]:
     """Poll HubSpot Taxi Request object for records with status = pending."""
+    
+    # Read at call time — not at import time
+    taxi_object_type = os.getenv("HUBSPOT_TAXI_OBJECT_TYPE", "")
+    
     if not HUBSPOT_API_KEY:
         log.warning("HUBSPOT_API_KEY not set")
         return []
-
-    if not HUBSPOT_TAXI_OBJECT_TYPE:
+    if not taxi_object_type:
         log.warning("HUBSPOT_TAXI_OBJECT_TYPE not set — skipping poll")
         return []
 
-    url  = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{HUBSPOT_TAXI_OBJECT_TYPE}/search"
+    url  = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{taxi_object_type}/search"
+    # ... rest unchanged
     body = {
         "filterGroups": [
             {
@@ -245,10 +248,15 @@ def fetch_pending_taxi_requests() -> List[TaxiRequestRecord]:
 
 def update_taxi_status(hubspot_id: str, status: str, booking_id: Optional[str] = None) -> bool:
     """Update Taxi Request object status in HubSpot."""
-    if not HUBSPOT_TAXI_OBJECT_TYPE:
+    
+    # Read at call time — not at import time
+    taxi_object_type = os.getenv("HUBSPOT_TAXI_OBJECT_TYPE", "")
+    
+    if not taxi_object_type:
+        log.warning("HUBSPOT_TAXI_OBJECT_TYPE not set — cannot update status")
         return False
 
-    url        = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{HUBSPOT_TAXI_OBJECT_TYPE}/{hubspot_id}"
+    url        = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{taxi_object_type}/{hubspot_id}"
     properties = {"status": status}
     if booking_id:
         properties["booking_id"] = booking_id
@@ -261,3 +269,5 @@ def update_taxi_status(hubspot_id: str, status: str, booking_id: Optional[str] =
     except Exception as e:
         log.error(f"update_taxi_status failed: {e}")
         return False
+
+        

@@ -1,17 +1,20 @@
 """
-personaplex_agent_new.py  — with full transcript support
-=========================================================
-CHANGES FROM ORIGINAL (marked with  # ← NEW):
-  1. Import TranscriptManager and UserTranscriber
-  2. Create both objects in PersonaPlexAgent.run()
-  3. Pass them into PersonaPlexBridge
-  4. flush_to_db() in the finally block
+personaplex_agent_new.py  — with full transcript + PayU payment support
+========================================================================
+CHANGES FROM ORIGINAL (marked with  # ← PAYU):
+  1. Import PaymentBridge
+  2. Create PaymentBridge in PersonaPlexAgent.run()
+  3. Hook on_payment_ready  → feeds payment link into transcript
+  4. Hook on_payment_confirmed → logs and records payment confirmation
+  5. Forward every transcript turn to payment_bridge.notify_turn()
+  6. Call payment_bridge.stop() in the finally block
 """
 
 import argparse
 import asyncio
 import logging
 import os
+import re as _re
 
 from dotenv import load_dotenv
 from livekit import api as livekit_api
@@ -19,11 +22,12 @@ from livekit import rtc
 from livekit.api import AccessToken, VideoGrants
 
 from src.personaplex.bridge import PersonaPlexBridge
-
-# ← NEW
 from src.transcript.manager import TranscriptManager
 from src.transcript.user_transcriber import UserTranscriber
-from crm_extractor import extract_crm  # ← NEW
+from crm_extractor import extract_crm
+
+# ← PAYU
+from src.payment.payment_bridge import PaymentBridge
 
 load_dotenv()
 
@@ -43,11 +47,10 @@ LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
 PERSONAPLEX_WS_URL = os.getenv("PERSONAPLEX_WS_URL", "")
 POLL_INTERVAL      = float(os.getenv("AGENT_POLL_INTERVAL", "2"))
 
-# ← NEW — Whisper settings from .env (sensible defaults)
-WHISPER_MODEL   = os.getenv("WHISPER_MODEL", "base")   # tiny | base | small
-WHISPER_DEVICE  = os.getenv("WHISPER_DEVICE", "cpu")   # cpu | cuda
-WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8") # int8 (cpu) | float16 (cuda)
-WHISPER_LANG    = os.getenv("WHISPER_LANG", "en")      # language code
+WHISPER_MODEL   = os.getenv("WHISPER_MODEL", "base")
+WHISPER_DEVICE  = os.getenv("WHISPER_DEVICE", "cpu")
+WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8")
+WHISPER_LANG    = os.getenv("WHISPER_LANG", "en")
 
 if not all([LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET]):
     raise ValueError("LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET must be set")
@@ -65,6 +68,7 @@ class PersonaPlexAgent:
         self.room_name = room_name
         self.room: rtc.Room = None
         self.bridge: PersonaPlexBridge = None
+        self.payment_bridge: PaymentBridge = None  # ← PAYU
 
     async def run(self):
         token = (
@@ -97,11 +101,9 @@ class PersonaPlexAgent:
 
         logger.info(f"Connecting to LiveKit room: {self.room_name}")
 
-        # ── ← NEW — create transcript objects ────────────────────────────────
-
+        # ── Transcript objects ────────────────────────────────────────────────
         transcript = TranscriptManager(room_name=self.room_name)
 
-        # UserTranscriber loads Whisper once here (takes ~2-5s on first call)
         user_transcriber = UserTranscriber(
             on_transcript=transcript.add_user_turn,
             model_size=WHISPER_MODEL,
@@ -110,15 +112,70 @@ class PersonaPlexAgent:
             language=WHISPER_LANG,
         )
 
-        # ── ─────────────────────────────────────────────────────────────────
+        # ── PAYU: Create PaymentBridge ────────────────────────────────────────
+        room_num_match = _re.search(r"(\d{2,4})", self.room_name)
+        initial_room_number = room_num_match.group(1) if room_num_match else ""
+
+        def on_payment_ready(payment_link: str, bill_text: str, room_number: str):
+            logger.info("PAYMENT LINK READY — room=%s link=%s", room_number, payment_link)
+            # Record in transcript so the session log captures it
+            transcript.add_agent_turn(
+                f"I've created your bill. Please pay here: {payment_link}"
+            )
+            if self.bridge and self.bridge._on_text_callback:
+                try:
+                    self.bridge._on_text_callback(
+                        f"[PayU] Payment link: {payment_link}"
+                    )
+                except Exception:
+                    pass
+
+        def on_payment_confirmed(txn_id: str, amount: str, room_number: str):
+            logger.info(
+                "PAYMENT CONFIRMED — txn=%s amount=%s room=%s",
+                txn_id, amount, room_number,
+            )
+            transcript.add_agent_turn(
+                f"Payment of Rs {amount} confirmed for order {txn_id}. Thank you!"
+            )
+            if self.bridge and self.bridge._on_text_callback:
+                try:
+                    self.bridge._on_text_callback(
+                        f"[PayU] Payment confirmed Rs {amount} txn={txn_id}"
+                    )
+                except Exception:
+                    pass
+
+        self.payment_bridge = PaymentBridge(
+            on_payment_ready=on_payment_ready,
+            on_payment_confirmed=on_payment_confirmed,
+            room_number=initial_room_number,
+        )
+
+        # ── Patch TranscriptManager to also feed PaymentBridge ────────────────
+        _orig_user  = transcript.add_user_turn
+        _orig_agent = transcript.add_agent_turn
+
+        def _patched_user(text: str):
+            _orig_user(text)
+            self.payment_bridge.notify_turn("user", text)
+
+        def _patched_agent(text: str):
+            _orig_agent(text)
+            self.payment_bridge.notify_turn("agent", text)
+
+        transcript.add_user_turn  = _patched_user   # type: ignore[method-assign]
+        transcript.add_agent_turn = _patched_agent  # type: ignore[method-assign]
+
+        # Also point UserTranscriber at the patched version
+        user_transcriber._on_transcript = _patched_user
+        # ─────────────────────────────────────────────────────────────────────
 
         try:
             await self.room.connect(LIVEKIT_URL, token.to_jwt())
             logger.info(f"Connected to room: {self.room.name}")
 
             def on_text(text: str):
-                # note: add_agent_turn is now called inside bridge._emit_text
-                # this callback is still here for any extra processing you want
                 logger.info(f"[PersonaPlex] {text}")
 
             def on_state(state: str):
@@ -128,7 +185,6 @@ class PersonaPlexAgent:
                 ws_url=PERSONAPLEX_WS_URL,
                 on_text_callback=on_text,
                 on_state_callback=on_state,
-                # ← NEW — pass transcript objects into bridge
                 transcript_manager=transcript,
                 user_transcriber=user_transcriber,
             )
@@ -145,18 +201,20 @@ class PersonaPlexAgent:
         finally:
             logger.info("Agent stopped")
             await user_transcriber.close()
-            # ← NEW — save everything to SQLite on session end
             transcript.flush_to_db()
             logger.info(
                 "Session saved. ID=%s  turns=%d",
                 transcript.session_id, transcript.turn_count,
             )
-            # ← NEW — extract CRM JSON via Phi-3 Mini
             extract_crm(
                 session_id=transcript.session_id,
                 room_name=transcript.room_name,
                 turns=transcript.get_turns(),
             )
+            # ← PAYU: cancel background polling
+            if self.payment_bridge:
+                self.payment_bridge.stop()
+
             if self.room:
                 await self.room.disconnect()
 

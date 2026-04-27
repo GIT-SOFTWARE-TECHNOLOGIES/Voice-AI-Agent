@@ -95,7 +95,7 @@ class HubSpotTaxiPoller:
                 f"SMS: {result.sms_sent} | "
                 f"Email: {result.email_sent}"
             )
-            update_taxi_status(hubspot_id, "booked", booking_id=result.booking_id)
+            update_taxi_status(hubspot_id, "booked")
         else:
             log.error(f"Booking failed for taxi request {hubspot_id}")
             update_taxi_status(hubspot_id, "failed")

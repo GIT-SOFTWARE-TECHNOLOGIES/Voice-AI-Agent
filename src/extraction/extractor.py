@@ -69,11 +69,12 @@ urgency is "urgent" if guest expressed urgency or discomfort, otherwise "normal"
 """
 
 MENU = {
-    "cheese pizza":  350,
+    "cheese pizza":  349,
     "burger":        199,
-    "french fries":  99,
+    "french fries":  199,
     "sandwich":      149,
-    "cold coffee":   129,
+    "cold coffee":   149,
+    "cheese musroom": 249,
 }
 
 def enrich_food_items(items: list[dict]) -> tuple[list[dict], int]:

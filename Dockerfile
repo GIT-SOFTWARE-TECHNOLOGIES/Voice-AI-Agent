@@ -26,7 +26,9 @@ COPY src/ ./src/
 COPY personaplex_agent_new.py .
 COPY token_server.py .
 COPY crm_extractor.py .
-COPY run_taxi_poller.py .    
+COPY run_taxi_poller.py .
+COPY payment_server.py .
+COPY run_hubspot_payment_poller.py .
 
 
 COPY .env .
