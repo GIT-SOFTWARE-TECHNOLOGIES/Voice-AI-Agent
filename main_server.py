@@ -1,0 +1,83 @@
+"""
+Token Server
+─────────────────────────────────────────────────────────────────────
+Lightweight FastAPI server that issues LiveKit JWT tokens.
+Used by test_personaplex.html to connect to the LiveKit room.
+
+Run:
+    python token_server.py
+    → serves on http://0.0.0.0:8080
+
+.env variables used:
+    LIVEKIT_API_KEY      — LiveKit API key
+    LIVEKIT_API_SECRET   — LiveKit API secret
+    LIVEKIT_URL          — used by the agent (ws://localhost:7880)
+    LIVEKIT_PUBLIC_URL   — sent to browser (ws://172.31.x.x:7880)
+                           If not set, falls back to LIVEKIT_URL
+─────────────────────────────────────────────────────────────────────
+"""
+
+import os
+import uuid
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from livekit import api
+import uvicorn
+
+load_dotenv()
+
+LIVEKIT_API_KEY    = os.getenv("LIVEKIT_API_KEY",    "devkey")
+LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret1234567890secret1234567890")
+LIVEKIT_URL        = os.getenv("LIVEKIT_URL",        "ws://localhost:7880")
+
+# LIVEKIT_PUBLIC_URL is what gets sent to the browser in the token.
+# On WSL2, the browser cannot reach ws://localhost:7880 because
+# localhost in the browser means Windows, not WSL.
+# Set LIVEKIT_PUBLIC_URL=ws://<your-WSL-IP>:7880 in .env
+# Run `hostname -I` in WSL to find your WSL IP.
+LIVEKIT_PUBLIC_URL = os.getenv("LIVEKIT_PUBLIC_URL", LIVEKIT_URL)
+
+app = FastAPI(title="LiveKit Token Server")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/token")
+async def get_token(identity: str = None, room: str = "personaplex-test"):
+    if not identity:
+        identity = f"user-{uuid.uuid4().hex[:8]}"
+    try:
+        token = api.AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
+        token.with_identity(identity)
+        token.with_name(identity)
+        token.with_grants(api.VideoGrants(
+            room_join=True,
+            room=room,
+            can_publish=True,
+            can_subscribe=True,
+            can_publish_data=True,
+        ))
+        return {
+            "token":    token.to_jwt(),
+            "url":      LIVEKIT_PUBLIC_URL,   # ← WSL IP sent to browser
+            "identity": identity,
+            "room":     room,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)

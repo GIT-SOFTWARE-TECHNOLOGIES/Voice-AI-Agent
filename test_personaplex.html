@@ -1,573 +1,1145 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PersonaPlex Voice Test</title>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HotelVoice AI | Modern Guest Experience</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- LiveKit SDK -->
     <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.js"></script>
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: #0d0d0d;
-        color: #e8e8e8;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 40px 20px;
-      }
-
-      h1 {
-        font-size: 22px;
-        font-weight: 500;
-        color: #ffffff;
-        margin-bottom: 6px;
-        letter-spacing: -0.3px;
-      }
-
-      .subtitle {
-        font-size: 13px;
-        color: #666;
-        margin-bottom: 36px;
-      }
-
-      .card {
-        background: #161616;
-        border: 1px solid #2a2a2a;
-        border-radius: 12px;
-        padding: 24px;
-        width: 100%;
-        max-width: 520px;
-        margin-bottom: 16px;
-      }
-
-      .card-title {
-        font-size: 11px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: #555;
-        margin-bottom: 16px;
-      }
-
-      label {
-        display: block;
-        font-size: 12px;
-        color: #888;
-        margin-bottom: 6px;
-        margin-top: 14px;
-      }
-      label:first-of-type { margin-top: 0; }
-
-      input[type="text"] {
-        width: 100%;
-        padding: 10px 12px;
-        background: #0d0d0d;
-        border: 1px solid #2a2a2a;
-        border-radius: 8px;
-        color: #e8e8e8;
-        font-size: 13px;
-        outline: none;
-        transition: border-color 0.15s;
-      }
-      input[type="text"]:focus { border-color: #444; }
-
-      /* Status pill */
-      #status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: 500;
-        background: #1e1e1e;
-        border: 1px solid #2a2a2a;
-        color: #888;
-        margin-bottom: 20px;
-        transition: all 0.2s;
-      }
-      #status-pill.connected    { background: #0d2b1a; border-color: #1a5c35; color: #34d47a; }
-      #status-pill.connecting   { background: #1c1a09; border-color: #4a3d00; color: #d4b034; }
-      #status-pill.error        { background: #2b0d0d; border-color: #5c1a1a; color: #d43434; }
-
-      #status-dot {
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: #444;
-        transition: background 0.2s;
-      }
-      .connected  #status-dot  { background: #34d47a; animation: pulse-green 1.5s infinite; }
-      .connecting #status-dot  { background: #d4b034; animation: pulse-amber 1s infinite; }
-      .error      #status-dot  { background: #d43434; }
-
-      @keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:0.4} }
-      @keyframes pulse-amber { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-      /* Visualizer */
-      #viz-wrap {
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        gap: 3px;
-        height: 48px;
-        margin: 20px 0;
-      }
-      .viz-bar {
-        width: 4px;
-        background: #2a2a2a;
-        border-radius: 2px;
-        transition: height 0.05s ease, background 0.2s;
-        min-height: 4px;
-      }
-      .viz-bar.mic-active   { background: #4a9eff; }
-      .viz-bar.agent-active { background: #34d47a; }
-
-      /* Buttons */
-      .btn-row {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-      }
-
-      button {
-        flex: 1;
-        padding: 12px;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: opacity 0.15s, transform 0.1s;
-      }
-      button:hover:not(:disabled) { opacity: 0.85; transform: scale(1.01); }
-      button:active:not(:disabled) { transform: scale(0.99); }
-      button:disabled { opacity: 0.35; cursor: not-allowed; }
-
-      #btn-token    { background: #3a3a3a; color: #e8e8e8; }
-      #btn-connect  { background: #4a9eff; color: #fff; }
-      #btn-disconnect { background: #c0392b; color: #fff; display: none; }
-
-      /* Mic toggle */
-      #btn-mic {
-        flex: none;
-        width: 48px;
-        background: #2a2a2a;
-        color: #e8e8e8;
-        font-size: 18px;
-        padding: 0;
-        display: none;
-      }
-      #btn-mic.muted { background: #c0392b; }
-
-      /* Log */
-      #log {
-        background: #0a0a0a;
-        border: 1px solid #1e1e1e;
-        border-radius: 8px;
-        padding: 12px;
-        height: 180px;
-        overflow-y: auto;
-        font-family: "SF Mono", "Fira Code", monospace;
-        font-size: 11px;
-        line-height: 1.7;
-      }
-      .log-line { color: #555; }
-      .log-line.info    { color: #888; }
-      .log-line.success { color: #34d47a; }
-      .log-line.warn    { color: #d4b034; }
-      .log-line.error   { color: #d43434; }
-
-      /* Transcript */
-      #transcript {
-        min-height: 60px;
-        font-size: 14px;
-        line-height: 1.6;
-        color: #aaa;
-        font-style: italic;
-      }
-      #transcript:empty::before {
-        content: "PersonaPlex inner monologue will appear here...";
-        color: #333;
-      }
-
-      /* Level meter */
-      .level-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 14px;
-        font-size: 12px;
-        color: #555;
-      }
-      .level-bar-wrap {
-        flex: 1;
-        height: 4px;
-        background: #1e1e1e;
-        border-radius: 2px;
-        overflow: hidden;
-      }
-      .level-bar {
-        height: 100%;
-        border-radius: 2px;
-        width: 0%;
-        transition: width 0.05s;
-      }
-      #mic-level-bar   { background: #4a9eff; }
-      #agent-level-bar { background: #34d47a; }
-    </style>
-  </head>
-  <body>
-
-    <h1>PersonaPlex Voice Test</h1>
-    <p class="subtitle">Audio In → PersonaPlex on RunPod → Audio Out</p>
-
-    <!-- Status -->
-    <div id="status-pill">
-      <span id="status-dot"></span>
-      <span id="status-text">Disconnected</span>
-    </div>
-
-    <!-- Config card -->
-    <div class="card">
-      <div class="card-title">Connection</div>
-
-      <label>Token API URL</label>
-      <input type="text" id="token-api-url" value="https://api.gitsoftwaretech.in/api/token" />
-
-      <label>LiveKit Server URL</label>
-      <input type="text" id="server-url" value="wss://livekit.gitsoftwaretech.in"/>
-
-      <label>Room Name</label>
-      <input type="text" id="room-name" value="personaplex-test" />
-
-      <label>Access Token <span id="token-status" style="color:#444;font-weight:400"></span></label>
-      <input type="text" id="token" placeholder="Click 'Get Token' or paste manually..." />
-
-      <div class="btn-row">
-        <button id="btn-token"      onclick="getToken()">Get Token</button>
-        <button id="btn-connect"    onclick="connect()">Connect</button>
-        <button id="btn-disconnect" onclick="disconnect()">Disconnect</button>
-        <button id="btn-mic"        onclick="toggleMic()">🎤</button>
-      </div>
-    </div>
-
-    <!-- Visualizer card -->
-    <div class="card">
-      <div class="card-title">Audio</div>
-
-      <div id="viz-wrap">
-        <!-- 20 bars generated by JS -->
-      </div>
-
-      <div class="level-row">
-        <span style="width:80px">Your mic</span>
-        <div class="level-bar-wrap"><div class="level-bar" id="mic-level-bar"></div></div>
-        <span id="mic-level-num" style="width:28px;text-align:right">0</span>
-      </div>
-      <div class="level-row">
-        <span style="width:80px">PersonaPlex</span>
-        <div class="level-bar-wrap"><div class="level-bar" id="agent-level-bar"></div></div>
-        <span id="agent-level-num" style="width:28px;text-align:right">0</span>
-      </div>
-    </div>
-
-    <!-- Transcript card -->
-    <div class="card">
-      <div class="card-title">PersonaPlex Inner Monologue</div>
-      <div id="transcript"></div>
-    </div>
-
-    <!-- Log card -->
-    <div class="card">
-      <div class="card-title">Log</div>
-      <div id="log"></div>
-    </div>
-
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // ── State ─────────────────────────────────────────────────────────────
-      let room        = null;
-      let micEnabled  = true;
-      let micAnalyser = null;
-      let agentAnalyser = null;
-      let animFrame   = null;
-
-      const BAR_COUNT = 20;
-
-      // ── Build visualizer bars ─────────────────────────────────────────────
-      const vizWrap = document.getElementById("viz-wrap");
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const bar = document.createElement("div");
-        bar.className = "viz-bar";
-        bar.id = `bar-${i}`;
-        bar.style.height = "4px";
-        vizWrap.appendChild(bar);
-      }
-
-      // ── Logging ───────────────────────────────────────────────────────────
-      function log(msg, type = "info") {
-        const el  = document.getElementById("log");
-        const div = document.createElement("div");
-        div.className = `log-line ${type}`;
-        div.textContent = `${new Date().toLocaleTimeString("en-GB", { hour12: false })}  ${msg}`;
-        el.appendChild(div);
-        el.scrollTop = el.scrollHeight;
-      }
-
-      // ── Status pill ───────────────────────────────────────────────────────
-      function setStatus(text, state) {
-        const pill = document.getElementById("status-pill");
-        pill.className = state || "";
-        document.getElementById("status-text").textContent = text;
-      }
-
-      // ── Inner monologue transcript ─────────────────────────────────────────
-      function appendTranscript(text) {
-        const el = document.getElementById("transcript");
-        el.textContent += (el.textContent ? " " : "") + text;
-        el.scrollTop = el.scrollHeight;
-      }
-
-      // ── Token ─────────────────────────────────────────────────────────────
-      async function getToken() {
-        const apiUrl   = document.getElementById("token-api-url").value.trim();
-        const roomName = document.getElementById("room-name").value.trim();
-        const statusEl = document.getElementById("token-status");
-
-        if (!apiUrl) { log("Enter a Token API URL first", "error"); return; }
-
-        const btn = document.getElementById("btn-token");
-        btn.disabled = true;
-        btn.textContent = "Fetching...";
-        statusEl.textContent = "(fetching...)";
-        statusEl.style.color = "#d4b034";
-
-        try {
-          const url = new URL(apiUrl);
-          url.searchParams.set("room", roomName);
-          const res  = await fetch(url.toString());
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-
-          document.getElementById("token").value      = data.token;
-          document.getElementById("server-url").value = data.url;
-
-          statusEl.textContent = `(${data.identity})`;
-          statusEl.style.color = "#34d47a";
-          log(`Token issued for ${data.identity} → room "${data.room}"`, "success");
-        } catch (e) {
-          log(`Token fetch failed: ${e.message}`, "error");
-          statusEl.textContent = "(failed)";
-          statusEl.style.color = "#d43434";
-        } finally {
-          btn.disabled = false;
-          btn.textContent = "Get Token";
-        }
-      }
-
-      // ── Connect ───────────────────────────────────────────────────────────
-      async function connect() {
-        const serverUrl = document.getElementById("server-url").value.trim();
-        const token     = document.getElementById("token").value.trim();
-
-        if (!token) { log("Get a token first", "error"); return; }
-
-        setStatus("Connecting...", "connecting");
-        log("Connecting to LiveKit...");
-
-        try {
-          room = new LivekitClient.Room({
-            adaptiveStream: true,
-            dynacast: true,
-          });
-
-          // ── Room events ──────────────────────────────────────────────────
-          room.on(LivekitClient.RoomEvent.Connected, () => {
-            setStatus("Connected — speak now", "connected");
-            log("LiveKit room connected", "success");
-            document.getElementById("btn-token").style.display      = "none";
-            document.getElementById("btn-connect").style.display    = "none";
-            document.getElementById("btn-disconnect").style.display = "block";
-            document.getElementById("btn-mic").style.display        = "block";
-            startVisualizerLoop();
-          });
-
-          room.on(LivekitClient.RoomEvent.Disconnected, () => {
-            setStatus("Disconnected", "");
-            log("Disconnected from room");
-            document.getElementById("btn-token").style.display      = "block";
-            document.getElementById("btn-connect").style.display    = "block";
-            document.getElementById("btn-disconnect").style.display = "none";
-            document.getElementById("btn-mic").style.display        = "none";
-            stopVisualizerLoop();
-          });
-
-          room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
-            log(`Participant joined: ${p.identity}`, "success");
-          });
-
-          // ── PersonaPlex audio arriving ────────────────────────────────────
-          room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
-            log(`Track subscribed: ${track.kind} from ${participant.identity}`);
-
-            if (track.kind === "audio") {
-              // Attach audio element so we hear PersonaPlex
-              const audioEl = track.attach();
-              audioEl.autoplay = true;
-              document.body.appendChild(audioEl);
-              log("PersonaPlex audio attached — you should hear it!", "success");
-
-              // Wire up analyser for the level meter
-              try {
-                const ctx    = new AudioContext();
-                const src    = ctx.createMediaStreamSource(new MediaStream([audioEl.srcObject?.getAudioTracks?.()?.[0]].filter(Boolean)));
-                agentAnalyser = ctx.createAnalyser();
-                agentAnalyser.fftSize = 64;
-                src.connect(agentAnalyser);
-              } catch (_) {
-                // Agent level meter is optional
-              }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        dark: '#07080a',
+                        card: '#0c0d11',
+                        'card-border': 'rgba(255,255,255,0.05)',
+                        brand: '#eab308', // Gold/Amber accent
+                        'brand-light': '#fde047',
+                        'brand-dark': '#ca8a04',
+                        'accent-cyan': '#22d3ee',
+                        'accent-purple': '#c084fc'
+                    }
+                }
             }
-          });
-
-          // ── Data messages (inner monologue from bridge) ───────────────────
-          room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
-            try {
-              const text = new TextDecoder().decode(payload);
-              if (text.trim()) {
-                log(`🧠 PersonaPlex: ${text}`, "info");
-                appendTranscript(text);
-              }
-            } catch (_) {}
-          });
-
-          // ── Connect + enable mic ─────────────────────────────────────────
-          await room.connect(serverUrl, token);
-          await room.localParticipant.setMicrophoneEnabled(true);
-          log("Microphone enabled", "success");
-
-          // Wire mic analyser
-          await setupMicAnalyser();
-
-        } catch (err) {
-          setStatus("Connection failed", "error");
-          log(`Connection error: ${err.message}`, "error");
-          console.error(err);
         }
-      }
-
-      // ── Mic analyser setup ────────────────────────────────────────────────
-      async function setupMicAnalyser() {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const ctx    = new AudioContext();
-          const src    = ctx.createMediaStreamSource(stream);
-          micAnalyser  = ctx.createAnalyser();
-          micAnalyser.fftSize = 64;
-          src.connect(micAnalyser);
-        } catch (_) {
-          log("Could not set up mic analyser (optional)", "warn");
-        }
-      }
-
-      // ── Visualizer loop ───────────────────────────────────────────────────
-      function startVisualizerLoop() {
-        const micData   = micAnalyser   ? new Uint8Array(micAnalyser.frequencyBinCount)   : null;
-        const agentData = agentAnalyser ? new Uint8Array(agentAnalyser.frequencyBinCount) : null;
-
-        function tick() {
-          // Mic data
-          let micAvg = 0;
-          if (micAnalyser && micData) {
-            micAnalyser.getByteFrequencyData(micData);
-            micAvg = micData.reduce((a, b) => a + b, 0) / micData.length;
-          }
-
-          // Agent data
-          let agentAvg = 0;
-          if (agentAnalyser && agentData) {
-            agentAnalyser.getByteFrequencyData(agentData);
-            agentAvg = agentData.reduce((a, b) => a + b, 0) / agentData.length;
-          }
-
-          // Update level bars
-          document.getElementById("mic-level-bar").style.width   = Math.min(100, micAvg * 1.2) + "%";
-          document.getElementById("agent-level-bar").style.width = Math.min(100, agentAvg * 1.2) + "%";
-          document.getElementById("mic-level-num").textContent   = Math.round(micAvg);
-          document.getElementById("agent-level-num").textContent = Math.round(agentAvg);
-
-          // Animate viz bars
-          for (let i = 0; i < BAR_COUNT; i++) {
-            const bar      = document.getElementById(`bar-${i}`);
-            const isMicBar = i < BAR_COUNT / 2;
-            const base     = isMicBar ? micAvg : agentAvg;
-            const noise    = Math.random() * base * 0.5;
-            const h        = Math.max(4, (base + noise) * 0.5);
-            bar.style.height    = Math.min(48, h) + "px";
-            bar.className = "viz-bar " + (isMicBar
-              ? (micAvg > 5   ? "mic-active"   : "")
-              : (agentAvg > 5 ? "agent-active" : ""));
-          }
-
-          animFrame = requestAnimationFrame(tick);
-        }
-
-        animFrame = requestAnimationFrame(tick);
-      }
-
-      function stopVisualizerLoop() {
-        if (animFrame) cancelAnimationFrame(animFrame);
-        for (let i = 0; i < BAR_COUNT; i++) {
-          const bar = document.getElementById(`bar-${i}`);
-          bar.style.height = "4px";
-          bar.className    = "viz-bar";
-        }
-        document.getElementById("mic-level-bar").style.width   = "0%";
-        document.getElementById("agent-level-bar").style.width = "0%";
-      }
-
-      // ── Mic toggle ────────────────────────────────────────────────────────
-      async function toggleMic() {
-        if (!room) return;
-        micEnabled = !micEnabled;
-        await room.localParticipant.setMicrophoneEnabled(micEnabled);
-        const btn = document.getElementById("btn-mic");
-        btn.textContent = micEnabled ? "🎤" : "🔇";
-        btn.className   = micEnabled ? "" : "muted";
-        log(`Microphone ${micEnabled ? "enabled" : "muted"}`, micEnabled ? "success" : "warn");
-      }
-
-      // ── Disconnect ────────────────────────────────────────────────────────
-      async function disconnect() {
-        if (!room) {
-          log("Not connected", "warn");
-          return;
-        }
-        log("Disconnecting...", "warn");
-        try {
-          await room.disconnect();
-        } catch (e) {
-          log(`Disconnect error: ${e.message}`, "error");
-        }
-        room = null;
-        micEnabled = true;
-        const micBtn = document.getElementById("btn-mic");
-        micBtn.textContent = "🎤";
-        micBtn.className = "";
-        log("Disconnected successfully", "success");
-      }
-
-      // ── Auto-detect host for non-localhost ────────────────────────────────
-      window.addEventListener("DOMContentLoaded", () => {
-        const host = window.location.hostname;
-        if (host !== "localhost" && host !== "127.0.0.1") {
-          document.getElementById("token-api-url").value = `https://api.gitsoftwaretech.in/api/token`;
-          document.getElementById("server-url").value    = `wss://livekit.gitsoftwaretech.in`;
-        }
-        log("Ready — click 'Get Token' then 'Connect'", "info");
-      });
     </script>
-  </body>
+
+    <style>
+        /* Custom Noise Overlay */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        
+        /* Background Grid */
+        .grid-bg {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), 
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Gradients */
+        .gradient-text-gold {
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            background-image: linear-gradient(to right, #eab308, #fde047);
+        }
+
+        .radial-glow-top {
+            background: radial-gradient(circle at 50% 0%, rgba(234, 179, 8, 0.08) 0%, transparent 50%);
+        }
+
+        .radial-glow-center {
+            background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.05) 0%, transparent 60%);
+        }
+
+        /* Hero Waveform Animation */
+        .waveform-bar {
+            animation: waveform ease-in-out infinite alternate;
+        }
+        @keyframes waveform {
+            0% { transform: scaleY(0.3); }
+            100% { transform: scaleY(1); }
+        }
+
+        /* Base element styling */
+        section { padding: 6rem 1.5rem; }
+        .container { max-width: 1152px; margin: 0 auto; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+
+        /* --- Live Demo Specific Styles --- */
+        #status-pill { transition: all 0.2s; }
+        #status-pill.connected    { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        #status-pill.connecting   { background: rgba(234, 179, 8, 0.1); border-color: rgba(234, 179, 8, 0.2); color: #facc15; }
+        #status-pill.error        { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #f87171; }
+        
+        #status-dot { transition: background 0.2s; }
+        .connected  #status-dot  { background: #4ade80; animation: pulse-green 1.5s infinite; }
+        .connecting #status-dot  { background: #facc15; animation: pulse-amber 1s infinite; }
+        .error      #status-dot  { background: #f87171; }
+
+        @keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes pulse-amber { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+        .viz-bar-demo {
+            width: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            transition: height 0.05s ease, background 0.2s;
+            min-height: 4px;
+        }
+        .viz-bar-demo.mic-active   { background: #3b82f6; }
+        .viz-bar-demo.agent-active { background: #eab308; }
+
+        #btn-mic.muted { background-color: #ef4444 !important; color: white !important; }
+
+        #log { font-family: "SF Mono", "Fira Code", monospace; font-size: 11px; line-height: 1.7; }
+        .log-line { color: #6b7280; }
+        .log-line.info    { color: #9ca3af; }
+        .log-line.success { color: #4ade80; }
+        .log-line.warn    { color: #facc15; }
+        .log-line.error   { color: #f87171; }
+    </style>
+</head>
+<body class="min-h-screen bg-dark text-white font-sans antialiased overflow-x-hidden selection:bg-brand/30 selection:text-brand-light">
+    
+    <div class="noise-overlay"></div>
+
+    <!-- NAVBAR -->
+    <nav class="fixed w-full top-0 bg-dark/80 backdrop-blur-xl z-40 border-b border-white/5 transition-all">
+        <div class="container flex justify-between items-center h-16 px-4">
+            <a href="#" class="flex items-center gap-2.5">
+                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-dark shadow-lg shadow-brand/20">
+                    <i data-lucide="mic" class="text-dark w-5 h-5"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-lg font-bold leading-tight tracking-tight text-white">HotelVoice<span class="text-brand">AI</span></span>
+                </div>
+            </a>
+            <div class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
+                <a href="#services" class="hover:text-white transition">Services</a>
+                <a href="#how-it-works" class="hover:text-white transition">How It Works</a>
+                <a href="#architecture" class="hover:text-white transition">Architecture</a>
+                <a href="#crm" class="hover:text-white transition">CRM</a>
+                <a href="#live-demo" class="hover:text-white transition text-brand">Live Demo</a>
+            </div>
+            <a href="#live-demo" class="hidden md:flex items-center justify-center rounded-xl bg-gradient-to-r from-brand to-brand-light px-5 py-2.5 text-sm font-semibold text-dark transition hover:shadow-lg hover:shadow-brand/20">
+                Test Agent
+            </a>
+            <!-- Mobile Menu Button -->
+            <button class="md:hidden text-gray-400 hover:text-white" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                <i data-lucide="menu"></i>
+            </button>
+        </div>
+        <!-- Mobile Dropdown -->
+        <div id="mobile-menu" class="hidden border-t border-white/5 bg-dark px-6 py-6 md:hidden">
+            <div class="flex flex-col gap-4">
+                <a href="#services" class="text-sm text-gray-400">Services</a>
+                <a href="#how-it-works" class="text-sm text-gray-400">How It Works</a>
+                <a href="#architecture" class="text-sm text-gray-400">Architecture</a>
+                <a href="#live-demo" class="text-sm text-brand">Live Demo</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <header class="radial-glow-top relative flex min-h-screen items-center justify-center overflow-hidden pt-20 px-4">
+        <div class="grid-bg absolute inset-0"></div>
+        <div class="absolute top-1/3 left-1/2 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand/5 blur-[150px] pointer-events-none"></div>
+        
+        <div class="relative z-10 container flex flex-col lg:flex-row items-center gap-16">
+            <!-- Left Text -->
+            <div class="flex-1 text-center lg:text-left mt-10 lg:mt-0">
+                <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-brand mb-6 backdrop-blur-sm">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
+                    </span>
+                    Live AI Voice Agents Available
+                </div>
+                <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 text-white leading-tight">
+                    The Voice AI that <br/>
+                    <span class="gradient-text-gold">Runs Your Hotel.</span>
+                </h1>
+                <p class="text-gray-400 text-lg mb-10 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                    Deploy a 24/7 AI agent that handles guest requests, dispatches services, and processes payments through natural conversation. Powered by LiveKit, Deepgram, and Phi-3.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                    <a href="#live-demo" class="group flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand to-brand-light px-8 py-4 text-sm font-semibold text-dark transition hover:shadow-xl hover:shadow-brand/20">
+                        Start Building
+                        <i data-lucide="arrow-right" class="w-4 h-4 transition group-hover:translate-x-1"></i>
+                    </a>
+                    <a href="#how-it-works" class="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-8 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/10">
+                        View Documentation
+                    </a>
+                </div>
+            </div>
+
+            <!-- Right Audio Player Mockup -->
+            <div class="flex-1 w-full max-w-md relative">
+                <div class="absolute -inset-1 rounded-3xl bg-gradient-to-b from-white/10 to-transparent blur-sm"></div>
+                <div class="relative rounded-3xl border border-white/10 bg-card p-6 shadow-2xl backdrop-blur-xl">
+                    
+                    <!-- Top Bar -->
+                    <div class="mb-6 flex items-center justify-between border-b border-white/5 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand/20 text-brand">
+                                <i data-lucide="phone" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-white">Room 412</p>
+                                <p class="text-xs text-green-400 flex items-center gap-1"><span class="block w-1.5 h-1.5 rounded-full bg-green-400"></span> Connected</p>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500">00:14</div>
+                    </div>
+
+                    <!-- Transcript Box -->
+                    <div class="mb-6 space-y-4 rounded-xl bg-dark/50 p-5 border border-white/5">
+                        <div class="flex gap-3">
+                            <div class="mt-0.5 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                                <i data-lucide="user" class="w-3 h-3 text-gray-400"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-gray-400 block mb-1">Guest</span>
+                                <span class="text-sm text-gray-200">"I'd like to order room service — a club sandwich and a coffee, please."</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="mt-0.5 w-6 h-6 rounded-full bg-brand/20 flex items-center justify-center shrink-0">
+                                <i data-lucide="bot" class="w-3 h-3 text-brand"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-brand block mb-1">Agent</span>
+                                <span class="text-sm text-white">"Of course! One club sandwich and a coffee for Room 412. Shall I add anything else?"</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Waveform Visualizer -->
+                    <div class="flex items-center justify-center py-4 h-16">
+                        <div class="flex items-center gap-[4px] h-full" id="waveform-container">
+                            <!-- Generated via JS below -->
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex justify-center">
+                        <button class="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 text-red-500 hover:bg-red-500/30 transition">
+                            <i data-lucide="phone-off" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- SERVICES -->
+    <section id="services" class="border-t border-white/5 bg-card/50">
+        <div class="container">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-extrabold text-white md:text-5xl mb-6">
+                    Everything a guest needs,<br>
+                    <span class="text-gray-500">just a voice command away.</span>
+                </h2>
+                <p class="mx-auto max-w-2xl text-gray-400">
+                    All requests are captured through natural conversation, structured by AI, and stored in HubSpot CRM — which serves as the central data source for all actions.
+                </p>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-orange-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-400/10">
+                        <i data-lucide="utensils-crossed" class="text-orange-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Food & Room Service</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Guests can order meals, snacks, and beverages through natural voice commands. The AI captures item details, preferences, and room number — then dispatches to the kitchen instantly.</p>
+                </div>
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-blue-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-400/10">
+                        <i data-lucide="car" class="text-blue-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Taxi & Transport</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Book airport pickups, city tours, or local rides by simply speaking. Background workers read CRM data to book vehicles and confirm with the guest in real-time.</p>
+                </div>
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-purple-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-purple-400/10">
+                        <i data-lucide="shirt" class="text-purple-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Laundry Service</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Request laundry pickup, dry cleaning, or express ironing. The AI logs garment details, schedule preferences, and triggers service dispatch from HubSpot CRM.</p>
+                </div>
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-red-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-red-400/10">
+                        <i data-lucide="wrench" class="text-red-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Maintenance</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Report issues like a broken AC or plumbing immediately. The system prioritizes urgency and routes tasks to the appropriate maintenance staff queue.</p>
+                </div>
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-green-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-green-400/10">
+                        <i data-lucide="bell-ring" class="text-green-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Front Desk & Concierge</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Ask for late checkouts, extra towels, wake-up calls, or local recommendations. Routine questions are answered instantly without human staff intervention.</p>
+                </div>
+                <div class="rounded-2xl p-7 border border-white/5 bg-card hover:border-cyan-400/30 transition-colors duration-300">
+                    <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/10">
+                        <i data-lucide="credit-card" class="text-cyan-400"></i>
+                    </div>
+                    <h3 class="mb-3 text-lg font-bold text-white">Express Checkout</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Initiate checkout entirely through voice. The system totals the bill, sends a secure payment link via SMS/email, and updates the room status to vacant.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works" class="border-t border-white/5">
+        <div class="container">
+            <div class="text-center mb-16">
+                <span class="text-sm font-semibold uppercase tracking-widest text-brand block mb-4">Pipeline</span>
+                <h2 class="text-3xl font-bold text-white md:text-4xl">Voice-to-Action Flow</h2>
+            </div>
+
+            <div class="grid gap-8 lg:grid-cols-4">
+                <div class="relative p-6 rounded-2xl border border-white/5 bg-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-3xl font-black text-white/10">01</span>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+                            <i data-lucide="mic" class="text-blue-500 w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-2 text-lg font-bold text-white">Voice Capture</h3>
+                    <p class="mb-4 text-sm leading-relaxed text-gray-400">Guest speaks naturally to the AI agent. LiveKit handles real-time audio communication with ultra-low latency.</p>
+                    <div class="inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-gray-400">LiveKit</div>
+                </div>
+                <div class="relative p-6 rounded-2xl border border-white/5 bg-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-3xl font-black text-white/10">02</span>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10">
+                            <i data-lucide="file-text" class="text-cyan-500 w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-2 text-lg font-bold text-white">Speech-to-Text</h3>
+                    <p class="mb-4 text-sm leading-relaxed text-gray-400">Voice input is transcribed into text using Deepgram's high-accuracy engine, optimized for hospitality.</p>
+                    <div class="inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-gray-400">Deepgram STT</div>
+                </div>
+                <div class="relative p-6 rounded-2xl border border-white/5 bg-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-3xl font-black text-white/10">03</span>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10">
+                            <i data-lucide="brain" class="text-purple-500 w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-2 text-lg font-bold text-white">LLM Extraction</h3>
+                    <p class="mb-4 text-sm leading-relaxed text-gray-400">Phi-3 Mini extracts structured data from the transcript — service type, items, room number, and urgency.</p>
+                    <div class="inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-gray-400">Phi-3 Mini</div>
+                </div>
+                <div class="relative p-6 rounded-2xl border border-white/5 bg-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-3xl font-black text-white/10">04</span>
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
+                            <i data-lucide="database" class="text-orange-500 w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <h3 class="mb-2 text-lg font-bold text-white">CRM Storage</h3>
+                    <p class="mb-4 text-sm leading-relaxed text-gray-400">Data is stored in HubSpot CRM as structured records. HubSpot acts as the single source of truth.</p>
+                    <div class="inline-flex rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-gray-400">HubSpot CRM</div>
+                </div>
+            </div>
+
+            <!-- Flow summary bar -->
+            <div class="mt-8 rounded-2xl border border-white/5 bg-card/50 p-6 flex flex-wrap items-center justify-center gap-4 text-sm">
+                <span class="font-medium text-white flex items-center gap-2"><i data-lucide="mic" class="w-4 h-4 text-gray-500"></i> Voice</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                <span class="font-medium text-white flex items-center gap-2"><i data-lucide="file-text" class="w-4 h-4 text-gray-500"></i> Text</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                <span class="font-medium text-white flex items-center gap-2"><i data-lucide="brain" class="w-4 h-4 text-gray-500"></i> LLM</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                <span class="font-medium text-white flex items-center gap-2"><i data-lucide="database" class="w-4 h-4 text-gray-500"></i> CRM</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                <span class="font-medium text-white flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4 text-gray-500"></i> Workers</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                <span class="font-medium text-brand flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Action</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ARCHITECTURE DIAGRAM -->
+    <section id="architecture" class="radial-glow-center relative border-t border-white/5">
+        <div class="container max-w-4xl">
+            <div class="text-center mb-12">
+                <span class="text-sm font-semibold uppercase tracking-widest text-accent-cyan block mb-4">System Architecture</span>
+                <h2 class="text-3xl font-bold text-white">End-to-End Infrastructure</h2>
+            </div>
+
+            <!-- Custom Diagram via HTML/CSS layout -->
+            <div class="bg-card border border-white/10 rounded-3xl p-8 lg:p-12 shadow-2xl relative">
+                <div class="flex justify-center mb-6">
+                    <div class="text-center bg-dark border border-white/10 px-6 py-3 rounded-xl z-10 w-48 shadow-lg">
+                        <div class="w-2 h-2 rounded-full bg-white mx-auto mb-2"></div>
+                        <p class="text-sm font-bold text-white">Guest</p>
+                        <p class="text-xs text-gray-500">Voice Interface</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-center -my-3 z-0 relative">
+                    <div class="h-10 w-px bg-gradient-to-b from-white/20 to-purple-500/50"></div>
+                </div>
+
+                <div class="mb-2 text-center relative z-10">
+                    <span class="inline-block rounded-full bg-purple-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-purple-400">Audio Pipeline</span>
+                </div>
+                <div class="flex justify-center mb-6 relative z-10">
+                    <div class="grid grid-cols-3 gap-4 w-full max-w-2xl">
+                        <div class="text-center bg-dark border border-purple-500/20 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-purple-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">LiveKit</p>
+                            <p class="text-xs text-gray-500">RTC / Routing</p>
+                        </div>
+                        <div class="text-center bg-dark border border-purple-500/20 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-purple-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">Deepgram</p>
+                            <p class="text-xs text-gray-500">Speech-to-Text</p>
+                        </div>
+                        <div class="text-center bg-dark border border-purple-500/20 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-purple-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">Phi-3 Mini</p>
+                            <p class="text-xs text-gray-500">LLM Processing</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center -my-3 z-0 relative">
+                    <div class="h-10 w-px bg-gradient-to-b from-purple-500/50 to-brand/50"></div>
+                </div>
+
+                <div class="flex justify-center mb-6 relative z-10">
+                    <div class="text-center bg-dark border border-brand/40 px-8 py-5 rounded-2xl w-full max-w-md shadow-lg shadow-brand/5">
+                        <div class="w-3 h-3 rounded-full bg-brand mx-auto mb-2 animate-pulse"></div>
+                        <p class="text-base font-bold text-white">HubSpot CRM</p>
+                        <p class="text-xs text-gray-400 mt-1">Central State & Truth Source</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-center -mt-3 mb-2 z-0 relative">
+                    <div class="flex flex-col items-center w-full max-w-xs">
+                        <div class="h-6 w-px bg-brand/50"></div>
+                        <div class="w-full border-t border-brand/30 h-px relative">
+                            <div class="absolute left-0 top-0 h-6 w-px bg-gradient-to-b from-brand/30 to-cyan-500/40"></div>
+                            <div class="absolute right-0 top-0 h-6 w-px bg-gradient-to-b from-brand/30 to-green-500/40"></div>
+                            <div class="absolute left-1/2 top-0 h-6 w-px bg-gradient-to-b from-brand/30 to-blue-500/40 transform -translate-x-1/2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3 text-center relative z-10 mt-6">
+                    <span class="inline-block rounded-full bg-green-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-green-400">Action Layer</span>
+                </div>
+                <div class="flex justify-center relative z-10">
+                    <div class="grid grid-cols-3 gap-4 w-full max-w-2xl">
+                        <div class="text-center bg-dark border border-green-500/30 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-green-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">Background Workers</p>
+                            <p class="text-xs text-gray-500">Task Execution</p>
+                        </div>
+                        <div class="text-center bg-dark border border-blue-500/30 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-blue-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">FastAPI Backend</p>
+                            <p class="text-xs text-gray-500">API Services</p>
+                        </div>
+                        <div class="text-center bg-dark border border-cyan-500/30 px-4 py-4 rounded-xl shadow-lg">
+                            <div class="w-2 h-2 rounded-full bg-cyan-400 mx-auto mb-2"></div>
+                            <p class="text-sm font-bold text-white">PayU Payments</p>
+                            <p class="text-xs text-gray-500">Payment Gateway</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CRM INTEGRATION -->
+    <section id="crm" class="border-t border-white/5 bg-dark">
+        <div class="container max-w-6xl">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                
+                <div>
+                    <span class="text-sm font-semibold uppercase tracking-widest text-brand block mb-4">CRM Integration</span>
+                    <h2 class="text-3xl font-bold text-white md:text-4xl mb-6">HubSpot as the Central Brain</h2>
+                    <p class="text-gray-400 text-lg mb-8 leading-relaxed">
+                        Every interaction is synchronized. We don't just act on voice commands; we log them structurally to ensure full traceability, audit trails, and data-driven hospitality.
+                    </p>
+
+                    <div class="space-y-6">
+                        <div class="flex gap-4">
+                            <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white mb-1">Service Ticket Tracking</h3>
+                                <p class="text-sm text-gray-400">Every guest request creates a structured ticket — service type, items, room number, priority, and timestamps.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                                <i data-lucide="users" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white mb-1">Guest Profiles</h3>
+                                <p class="text-sm text-gray-400">Build rich guest profiles over time with preferences, past requests, and interaction history.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                                <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-white mb-1">Action Trigger Point</h3>
+                                <p class="text-sm text-gray-400">All service dispatch and payment processing actions are triggered directly from CRM data updates.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-card border border-white/10 rounded-2xl p-8 shadow-xl">
+                    <div class="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+                        <div class="flex items-center gap-2 text-white font-bold">
+                            <i data-lucide="database" class="w-5 h-5 text-brand"></i> CRM Live Feed
+                        </div>
+                        <span class="flex h-2 w-2 relative">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between bg-dark/50 p-3 rounded-lg border border-white/5">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-orange-500/20 text-orange-400 text-[10px] uppercase font-bold px-2 py-1 rounded">Food</span>
+                                <div>
+                                    <p class="text-sm text-white">Room 412 - Club Sandwich</p>
+                                    <p class="text-xs text-gray-500">Created 2m ago</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">Pending</span>
+                        </div>
+                        <div class="flex items-center justify-between bg-dark/50 p-3 rounded-lg border border-white/5">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-purple-500/20 text-purple-400 text-[10px] uppercase font-bold px-2 py-1 rounded">Laundry</span>
+                                <div>
+                                    <p class="text-sm text-white">Room 205 - Express Ironing</p>
+                                    <p class="text-xs text-gray-500">Created 15m ago</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">Dispatched</span>
+                        </div>
+                        <div class="flex items-center justify-between bg-dark/50 p-3 rounded-lg border border-white/5 opacity-60">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-red-500/20 text-red-400 text-[10px] uppercase font-bold px-2 py-1 rounded">Maint</span>
+                                <div>
+                                    <p class="text-sm text-white">Room 310 - AC Repair</p>
+                                    <p class="text-xs text-gray-500">Created 1h ago</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">Resolved</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs">
+                        <span class="rounded-lg bg-white/5 px-3 py-2 text-gray-400">Voice Data In</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                        <span class="rounded-lg bg-brand/10 px-3 py-2 text-brand font-bold border border-brand/20">HubSpot CRM</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-brand"></i>
+                        <span class="rounded-lg bg-white/5 px-3 py-2 text-gray-400">Workers Read</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="payments" class="border-t border-white/5 bg-card/50">
+        <div class="container text-center max-w-5xl">
+            <span class="text-sm font-semibold uppercase tracking-widest text-cyan-400 block mb-4">Transactions</span>
+            <h2 class="text-3xl font-bold text-white md:text-4xl mb-12">Seamless PayU Integration</h2>
+            
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+                <div class="p-6 rounded-2xl bg-card border border-white/5">
+                    <div class="w-10 h-10 rounded-full bg-orange-400/10 flex items-center justify-center mb-4">
+                        <i data-lucide="credit-card" class="text-orange-400 w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white mb-2">Service Completed</h3>
+                    <p class="text-sm text-gray-400">Once fulfilled, the system calculates the total bill and prepares a request.</p>
+                </div>
+                <div class="p-6 rounded-2xl bg-card border border-white/5">
+                    <div class="w-10 h-10 rounded-full bg-cyan-400/10 flex items-center justify-center mb-4">
+                        <i data-lucide="link-2" class="text-cyan-400 w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white mb-2">Link Generated</h3>
+                    <p class="text-sm text-gray-400">Secure payment link is automatically generated via PayU's API with exact amounts.</p>
+                </div>
+                <div class="p-6 rounded-2xl bg-card border border-white/5">
+                    <div class="w-10 h-10 rounded-full bg-purple-400/10 flex items-center justify-center mb-4">
+                        <i data-lucide="bell" class="text-purple-400 w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white mb-2">Delivered to Guest</h3>
+                    <p class="text-sm text-gray-400">The payment link is delivered via SMS, WhatsApp, or email directly to the guest.</p>
+                </div>
+                <div class="p-6 rounded-2xl bg-card border border-white/5">
+                    <div class="w-10 h-10 rounded-full bg-green-400/10 flex items-center justify-center mb-4">
+                        <i data-lucide="check-circle" class="text-green-400 w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white mb-2">Status Updated</h3>
+                    <p class="text-sm text-gray-400">Upon completion, PayU sends a callback and updates the transaction status in HubSpot.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="border-t border-white/5">
+        <div class="container max-w-3xl">
+            <h2 class="text-3xl font-bold text-center text-white mb-12">
+                Your questions, <br/>
+                <span class="text-gray-500">answered.</span>
+            </h2>
+            
+            <div class="space-y-4">
+                <details class="group rounded-xl border border-white/5 bg-card open:bg-white/[0.02] transition-colors">
+                    <summary class="flex cursor-pointer items-center justify-between px-6 py-5 outline-none">
+                        <span class="text-sm font-semibold text-white">What is Hotel Voice AI Agent?</span>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180 group-open:text-brand"></i>
+                    </summary>
+                    <div class="px-6 pb-5 text-sm leading-relaxed text-gray-400">
+                        Hotel Voice AI Agent is a 24/7 AI-based voice assistant that allows hotel guests to request services like food, taxi, laundry, and maintenance through natural conversation. It captures voice input, processes it with AI, and triggers automated service delivery.
+                    </div>
+                </details>
+                <details class="group rounded-xl border border-white/5 bg-card open:bg-white/[0.02] transition-colors">
+                    <summary class="flex cursor-pointer items-center justify-between px-6 py-5 outline-none">
+                        <span class="text-sm font-semibold text-white">How does the voice-to-action pipeline work?</span>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180 group-open:text-brand"></i>
+                    </summary>
+                    <div class="px-6 pb-5 text-sm leading-relaxed text-gray-400">
+                        The guest speaks naturally to the agent. LiveKit captures the real-time audio, Deepgram converts speech to text, and Phi-3 Mini (LLM) extracts structured data (service type, items, room number). This data is stored in HubSpot CRM, from which background workers dispatch services and process payments via PayU.
+                    </div>
+                </details>
+                <details class="group rounded-xl border border-white/5 bg-card open:bg-white/[0.02] transition-colors">
+                    <summary class="flex cursor-pointer items-center justify-between px-6 py-5 outline-none">
+                        <span class="text-sm font-semibold text-white">Why is HubSpot CRM the central data source?</span>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180 group-open:text-brand"></i>
+                    </summary>
+                    <div class="px-6 pb-5 text-sm leading-relaxed text-gray-400">
+                        HubSpot CRM acts as the single source of truth for all guest interactions. Every voice request becomes a structured record. All downstream actions — food dispatch, taxi booking, maintenance assignment, payment processing — are triggered by reading CRM data. This ensures full traceability and audit trails.
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- LIVE DEMO (Integrated Prototype) -->
+    <section id="live-demo" class="border-t border-white/5 bg-dark relative py-24">
+        <!-- Background Accents -->
+        <div class="absolute inset-0 flex justify-center pointer-events-none opacity-50">
+            <div class="h-[400px] w-[600px] rounded-full bg-brand/5 blur-[120px]"></div>
+        </div>
+
+        <div class="container max-w-5xl relative z-10">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <span class="text-sm font-semibold uppercase tracking-widest text-brand block mb-4">Interactive Test</span>
+                <h2 class="text-3xl font-bold text-white md:text-4xl">Live AI Agent Demo</h2>
+                <p class="text-gray-400 mt-4 text-sm">Audio In → Agent on RunPod → Audio Out</p>
+            </div>
+
+            <!-- Status Pill -->
+            <div class="flex justify-center mb-10">
+                <div id="status-pill" class="inline-flex items-center gap-2.5 px-5 py-2 rounded-full text-sm font-medium border border-white/10 bg-white/5 text-gray-400">
+                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+                    <span id="status-text">Disconnected</span>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="grid lg:grid-cols-2 gap-8">
+                <!-- Left Column -->
+                <div class="space-y-8">
+                    <!-- Config Card -->
+                    <div class="bg-card border border-white/5 rounded-2xl p-7 shadow-xl">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="plug" class="w-4 h-4 text-gray-500"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Connection Details</h3>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1.5">Token API URL</label>
+                                <input type="text" id="token-api-url" value="https://api.gitsoftwaretech.in/api/token" class="w-full bg-dark border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-brand outline-none transition" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1.5">LiveKit Server URL</label>
+                                <input type="text" id="server-url" value="wss://livekit.gitsoftwaretech.in" class="w-full bg-dark border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-brand outline-none transition" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1.5">Room Name</label>
+                                <input type="text" id="room-name" value="personaplex-test" class="w-full bg-dark border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-brand outline-none transition" />
+                            </div>
+                            <div>
+                                <label class="flex justify-between items-center text-xs font-medium text-gray-500 mb-1.5">
+                                    Access Token <span id="token-status" class="text-gray-600 font-normal"></span>
+                                </label>
+                                <input type="text" id="token" placeholder="Click 'Get Token' or paste manually..." class="w-full bg-dark border border-white/10 rounded-lg px-4 py-2.5 text-sm text-gray-400 focus:border-brand outline-none transition" />
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 mt-6">
+                            <button id="btn-token" onclick="getToken()" class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                                Get Token
+                            </button>
+                            <button id="btn-connect" onclick="connect()" class="flex-1 bg-brand hover:bg-brand-light text-dark py-3 rounded-xl text-sm font-bold transition disabled:opacity-50 shadow-lg shadow-brand/20">
+                                Connect
+                            </button>
+                            <button id="btn-disconnect" onclick="disconnect()" class="hidden flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 py-3 rounded-xl text-sm font-bold transition disabled:opacity-50">
+                                Disconnect
+                            </button>
+                            <button id="btn-mic" onclick="toggleMic()" class="hidden w-14 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center transition text-lg">
+                                🎤
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Audio Visualizer Card -->
+                    <div class="bg-card border border-white/5 rounded-2xl p-7 shadow-xl">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="activity" class="w-4 h-4 text-gray-500"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Audio Stream</h3>
+                        </div>
+
+                        <div id="viz-wrap-demo" class="flex items-end justify-center gap-1 h-12 my-8">
+                            <!-- JS will generate bars here -->
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4 text-xs text-gray-400">
+                                <span class="w-20 font-medium">Your Mic</span>
+                                <div class="flex-1 h-1.5 bg-dark border border-white/5 rounded-full overflow-hidden">
+                                    <div id="mic-level-bar" class="h-full bg-blue-500 w-0 transition-all duration-75 rounded-full"></div>
+                                </div>
+                                <span id="mic-level-num" class="w-8 text-right font-mono text-gray-500">0</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs text-gray-400">
+                                <span class="w-20 font-medium">AI Agent</span>
+                                <div class="flex-1 h-1.5 bg-dark border border-white/5 rounded-full overflow-hidden">
+                                    <div id="agent-level-bar" class="h-full bg-brand w-0 transition-all duration-75 rounded-full"></div>
+                                </div>
+                                <span id="agent-level-num" class="w-8 text-right font-mono text-gray-500">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="space-y-8 flex flex-col h-full">
+                    <!-- Transcript Card -->
+                    <div class="bg-card border border-white/5 rounded-2xl p-7 shadow-xl flex-1 flex flex-col min-h-[200px]">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="message-square" class="w-4 h-4 text-gray-500"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Agent Monologue</h3>
+                        </div>
+                        <div id="transcript" class="flex-1 bg-dark/50 border border-white/5 rounded-xl p-5 text-sm text-gray-300 italic leading-relaxed overflow-y-auto empty:before:content-['Awaiting_monologue...'] empty:before:text-gray-600 empty:before:not-italic"></div>
+                    </div>
+
+                    <!-- Log Card -->
+                    <div class="bg-card border border-white/5 rounded-2xl p-7 shadow-xl h-[280px] flex flex-col">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="terminal" class="w-4 h-4 text-gray-500"></i>
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">System Log</h3>
+                        </div>
+                        <div id="log" class="flex-1 bg-[#0a0a0a] border border-white/5 rounded-xl p-4 overflow-y-auto shadow-inner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 bg-dark pt-16 pb-8">
+        <div class="container max-w-6xl">
+            <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-5 mb-16">
+                <div class="lg:col-span-2">
+                    <div class="mb-4 flex items-center gap-2.5">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-dark">
+                            <i data-lucide="mic" class="w-5 h-5 text-dark"></i>
+                        </div>
+                        <span class="text-lg font-bold text-white">HotelVoice<span class="text-brand">AI</span></span>
+                    </div>
+                    <p class="max-w-xs text-sm leading-relaxed text-gray-500 mb-6">
+                        24/7 AI-based voice assistant for hotels. Natural conversation for food, taxi, laundry, and maintenance — powered by cutting-edge AI.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-gray-400">LiveKit</span>
+                        <span class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-gray-400">Deepgram</span>
+                        <span class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-gray-400">Phi-3</span>
+                        <span class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-gray-400">HubSpot</span>
+                        <span class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-medium text-gray-400">FastAPI</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">Product</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Features</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Pricing</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Integrations</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">Resources</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Documentation</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">API Reference</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Setup Guide</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="mb-4 text-xs font-bold uppercase tracking-widest text-gray-600">Company</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">About Us</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Contact</a></li>
+                        <li><a href="#" class="text-sm text-gray-400 hover:text-white transition">Privacy Policy</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row text-xs text-gray-600">
+                <p>© 2024 HotelVoice AI. All rights reserved.</p>
+                <div class="flex gap-6">
+                    <a href="#" class="hover:text-white transition">Twitter</a>
+                    <a href="#" class="hover:text-white transition">LinkedIn</a>
+                    <a href="#" class="hover:text-white transition">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. Hero Waveform Generator (Static visual for header)
+        const heroWaveform = document.getElementById('waveform-container');
+        const heroHeights = [3, 7, 4, 9, 5, 8, 3, 6, 9, 4, 7, 5, 3, 8, 4, 9, 5, 7, 3, 6, 8, 4, 7, 5];
+        heroHeights.forEach((h, i) => {
+            const bar = document.createElement('div');
+            bar.className = 'w-[3px] rounded-full bg-brand waveform-bar';
+            bar.style.height = `${h * 3}px`;
+            bar.style.animationDelay = `${i * 0.08}s`;
+            bar.style.animationDuration = `${0.8 + Math.random() * 0.8}s`;
+            heroWaveform.appendChild(bar);
+        });
+
+        // -------------------------------------------------------------
+        // 2. LIVE DEMO LOGIC (PersonaPlex / LiveKit Integration)
+        // -------------------------------------------------------------
+        let room = null;
+        let micEnabled = true;
+        let micAnalyser = null;
+        let agentAnalyser = null;
+        let animFrame = null;
+
+        const BAR_COUNT = 20;
+
+        // Build visualizer bars for Live Demo
+        const vizWrapDemo = document.getElementById("viz-wrap-demo");
+        for (let i = 0; i < BAR_COUNT; i++) {
+            const bar = document.createElement("div");
+            bar.className = "viz-bar-demo";
+            bar.id = `demo-bar-${i}`;
+            vizWrapDemo.appendChild(bar);
+        }
+
+        // Logging
+        function log(msg, type = "info") {
+            const el = document.getElementById("log");
+            const div = document.createElement("div");
+            div.className = `log-line ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString("en-GB", { hour12: false })}  ${msg}`;
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // Status pill
+        function setStatus(text, state) {
+            const pill = document.getElementById("status-pill");
+            pill.className = `inline-flex items-center gap-2.5 px-5 py-2 rounded-full text-sm font-medium border ${state || "border-white/10 bg-white/5 text-gray-400"}`;
+            document.getElementById("status-text").textContent = text;
+        }
+
+        // Transcript
+        function appendTranscript(text) {
+            const el = document.getElementById("transcript");
+            el.textContent += (el.textContent ? " " : "") + text;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // Token Fetch
+        async function getToken() {
+            const apiUrl = document.getElementById("token-api-url").value.trim();
+            const roomName = document.getElementById("room-name").value.trim();
+            const statusEl = document.getElementById("token-status");
+
+            if (!apiUrl) { log("Enter a Token API URL first", "error"); return; }
+
+            const btn = document.getElementById("btn-token");
+            btn.disabled = true;
+            btn.textContent = "Fetching...";
+            statusEl.textContent = "(fetching...)";
+            statusEl.className = "text-yellow-500 font-medium";
+
+            try {
+                const url = new URL(apiUrl);
+                url.searchParams.set("room", roomName);
+                const res = await fetch(url.toString());
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                document.getElementById("token").value = data.token;
+                document.getElementById("server-url").value = data.url;
+
+                statusEl.textContent = `(${data.identity})`;
+                statusEl.className = "text-green-400 font-medium";
+                log(`Token issued for ${data.identity} → room "${data.room}"`, "success");
+            } catch (e) {
+                log(`Token fetch failed: ${e.message}`, "error");
+                statusEl.textContent = "(failed)";
+                statusEl.className = "text-red-400 font-medium";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Get Token";
+            }
+        }
+
+        // Connect
+        async function connect() {
+            const serverUrl = document.getElementById("server-url").value.trim();
+            const token = document.getElementById("token").value.trim();
+
+            if (!token) { log("Get a token first", "error"); return; }
+
+            setStatus("Connecting...", "connecting");
+            log("Connecting to LiveKit...");
+
+            try {
+                room = new LivekitClient.Room({
+                    adaptiveStream: true,
+                    dynacast: true,
+                });
+
+                // Room events
+                room.on(LivekitClient.RoomEvent.Connected, () => {
+                    setStatus("Connected — speak now", "connected");
+                    log("LiveKit room connected", "success");
+                    document.getElementById("btn-token").style.display = "none";
+                    document.getElementById("btn-connect").style.display = "none";
+                    document.getElementById("btn-disconnect").style.display = "block";
+                    document.getElementById("btn-mic").style.display = "flex";
+                    startVisualizerLoop();
+                });
+
+                room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                    setStatus("Disconnected", "");
+                    log("Disconnected from room");
+                    document.getElementById("btn-token").style.display = "block";
+                    document.getElementById("btn-connect").style.display = "block";
+                    document.getElementById("btn-disconnect").style.display = "none";
+                    document.getElementById("btn-mic").style.display = "none";
+                    stopVisualizerLoop();
+                });
+
+                room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => {
+                    log(`Participant joined: ${p.identity}`, "success");
+                });
+
+                // Audio arriving
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+                    log(`Track subscribed: ${track.kind} from ${participant.identity}`);
+
+                    if (track.kind === "audio") {
+                        const audioEl = track.attach();
+                        audioEl.autoplay = true;
+                        document.body.appendChild(audioEl);
+                        log("Agent audio attached — you should hear it!", "success");
+
+                        try {
+                            const ctx = new AudioContext();
+                            const src = ctx.createMediaStreamSource(new MediaStream([audioEl.srcObject?.getAudioTracks?.()?.[0]].filter(Boolean)));
+                            agentAnalyser = ctx.createAnalyser();
+                            agentAnalyser.fftSize = 64;
+                            src.connect(agentAnalyser);
+                        } catch (_) {
+                            // Agent level meter optional
+                        }
+                    }
+                });
+
+                // Data messages (inner monologue)
+                room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+                    try {
+                        const text = new TextDecoder().decode(payload);
+                        if (text.trim()) {
+                            log(`🧠 Agent: ${text}`, "info");
+                            appendTranscript(text);
+                        }
+                    } catch (_) {}
+                });
+
+                await room.connect(serverUrl, token);
+                await room.localParticipant.setMicrophoneEnabled(true);
+                log("Microphone enabled", "success");
+
+                await setupMicAnalyser();
+
+            } catch (err) {
+                setStatus("Connection failed", "error");
+                log(`Connection error: ${err.message}`, "error");
+                console.error(err);
+            }
+        }
+
+        // Mic analyser
+        async function setupMicAnalyser() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const ctx = new AudioContext();
+                const src = ctx.createMediaStreamSource(stream);
+                micAnalyser = ctx.createAnalyser();
+                micAnalyser.fftSize = 64;
+                src.connect(micAnalyser);
+            } catch (_) {
+                log("Could not set up mic analyser (optional)", "warn");
+            }
+        }
+
+        // Visualizer Loop
+        function startVisualizerLoop() {
+            const micData = micAnalyser ? new Uint8Array(micAnalyser.frequencyBinCount) : null;
+            const agentData = agentAnalyser ? new Uint8Array(agentAnalyser.frequencyBinCount) : null;
+
+            function tick() {
+                // Mic data
+                let micAvg = 0;
+                if (micAnalyser && micData) {
+                    micAnalyser.getByteFrequencyData(micData);
+                    micAvg = micData.reduce((a, b) => a + b, 0) / micData.length;
+                }
+
+                // Agent data
+                let agentAvg = 0;
+                if (agentAnalyser && agentData) {
+                    agentAnalyser.getByteFrequencyData(agentData);
+                    agentAvg = agentData.reduce((a, b) => a + b, 0) / agentData.length;
+                }
+
+                // Update level bars
+                document.getElementById("mic-level-bar").style.width = Math.min(100, micAvg * 1.2) + "%";
+                document.getElementById("agent-level-bar").style.width = Math.min(100, agentAvg * 1.2) + "%";
+                document.getElementById("mic-level-num").textContent = Math.round(micAvg);
+                document.getElementById("agent-level-num").textContent = Math.round(agentAvg);
+
+                // Animate viz bars
+                for (let i = 0; i < BAR_COUNT; i++) {
+                    const bar = document.getElementById(`demo-bar-${i}`);
+                    const isMicBar = i < BAR_COUNT / 2;
+                    const base = isMicBar ? micAvg : agentAvg;
+                    const noise = Math.random() * base * 0.5;
+                    const h = Math.max(4, (base + noise) * 0.5);
+                    
+                    bar.style.height = Math.min(48, h) + "px";
+                    bar.className = "viz-bar-demo " + (isMicBar
+                        ? (micAvg > 5 ? "mic-active" : "")
+                        : (agentAvg > 5 ? "agent-active" : ""));
+                }
+
+                animFrame = requestAnimationFrame(tick);
+            }
+            animFrame = requestAnimationFrame(tick);
+        }
+
+        function stopVisualizerLoop() {
+            if (animFrame) cancelAnimationFrame(animFrame);
+            for (let i = 0; i < BAR_COUNT; i++) {
+                const bar = document.getElementById(`demo-bar-${i}`);
+                bar.style.height = "4px";
+                bar.className = "viz-bar-demo";
+            }
+            document.getElementById("mic-level-bar").style.width = "0%";
+            document.getElementById("agent-level-bar").style.width = "0%";
+        }
+
+        // Mic toggle
+        async function toggleMic() {
+            if (!room) return;
+            micEnabled = !micEnabled;
+            await room.localParticipant.setMicrophoneEnabled(micEnabled);
+            const btn = document.getElementById("btn-mic");
+            btn.textContent = micEnabled ? "🎤" : "🔇";
+            
+            if(micEnabled) btn.classList.remove("muted");
+            else btn.classList.add("muted");
+            
+            log(`Microphone ${micEnabled ? "enabled" : "muted"}`, micEnabled ? "success" : "warn");
+        }
+
+        // Disconnect
+        async function disconnect() {
+            if (!room) {
+                log("Not connected", "warn");
+                return;
+            }
+            log("Disconnecting...", "warn");
+            try {
+                await room.disconnect();
+            } catch (e) {
+                log(`Disconnect error: ${e.message}`, "error");
+            }
+            room = null;
+            micEnabled = true;
+            const micBtn = document.getElementById("btn-mic");
+            micBtn.textContent = "🎤";
+            micBtn.classList.remove("muted");
+            log("Disconnected successfully", "success");
+        }
+
+        // Auto-detect host for non-localhost (Kept from original logic)
+        window.addEventListener("DOMContentLoaded", () => {
+            const host = window.location.hostname;
+            if (host !== "localhost" && host !== "127.0.0.1" && host !== "") {
+                document.getElementById("token-api-url").value = `https://api.gitsoftwaretech.in/api/token`;
+                document.getElementById("server-url").value = `wss://livekit.gitsoftwaretech.in`;
+            }
+            log("Ready — click 'Get Token' then 'Connect'", "info");
+        });
+    </script>
+</body>
 </html>
