@@ -31,39 +31,14 @@ load_dotenv()
 
 logger = logging.getLogger("payment.hubspot")
 
-HUBSPOT_ACCESS_TOKEN    = os.getenv("HUBSPOT_ACCESS_TOKEN", "")
+HUBSPOT_ACCESS_TOKEN     = os.getenv("HUBSPOT_ACCESS_TOKEN", "")
 HUBSPOT_FOOD_OBJECT_TYPE = os.getenv("HUBSPOT_FOOD_OBJECT_TYPE", "2-228700855")
-HUBSPOT_API_BASE        = "https://api.hubapi.com"
+HUBSPOT_API_BASE         = "https://api.hubapi.com"
 
-# ── Your actual menu ──────────────────────────────────────────────────────────
-MENU = {
-    "cheese pizza":  349.0,
-    "burger":        199.0,
-    "french fries":  199.0,
-    "sandwich":      149.0,
-    "cold coffee":   149.0,
-    # existing items from service_catalog
-    "butter chicken": 450.0,
-    "paneer tikka":   350.0,
-    "dal makhani":    280.0,
-    "biryani":        380.0,
-    "naan":            60.0,
-    "roti":            40.0,
-    "rice":           120.0,
-    "raita":           80.0,
-    "soup":           180.0,
-    "salad":          220.0,
-    "coke":            80.0,
-    "pepsi":           80.0,
-    "water bottle":    40.0,
-    "fresh juice":    150.0,
-    "tea":             60.0,
-    "coffee":         100.0,
-    "beer":           350.0,
-    "gulab jamun":    120.0,
-    "ice cream":      180.0,
-    "brownie":        200.0,
-}
+# ── Single source of truth for menu prices ────────────────────────────────────
+# Import from service_catalog so updating prices there reflects everywhere.
+# If you add a new item, add it to service_catalog.py FOOD_MENU only.
+from .service_catalog import FOOD_MENU as MENU
 
 
 def _parse_items(items_raw) -> list[dict]:
@@ -73,6 +48,10 @@ def _parse_items(items_raw) -> list[dict]:
     - Already a list: [{"name": "burger", ...}]
     - None / empty
     Returns a list of dicts with keys: name, quantity, unit_price, subtotal
+
+    Price priority: MENU (current catalog) > HubSpot stored price > 0
+    Subtotal is always recalculated from the resolved price so stale
+    HubSpot subtotals never sneak through.
     """
     if not items_raw:
         return []
@@ -91,9 +70,12 @@ def _parse_items(items_raw) -> list[dict]:
     for item in items_raw:
         name     = str(item.get("name", "")).lower().strip()
         quantity = int(item.get("quantity", 1))
-        # Use price from HubSpot if present, otherwise look up from MENU
-        price    = float(item.get("price", 0)) or MENU.get(name, 0.0)
-        subtotal = float(item.get("subtotal", 0)) or round(price * quantity, 2)
+
+        # ✅ FIX: always prefer current catalog price over stale HubSpot price
+        price = MENU.get(name) or float(item.get("price", 0) or 0)
+
+        # ✅ FIX: always recalculate subtotal — never trust HubSpot's stored value
+        subtotal = round(price * quantity, 2)
 
         if name:
             result.append({
@@ -224,9 +206,8 @@ class HubSpotExtractor:
         )
         payload = {
             "properties": {
-                "status": "paid",
-                "special_notes":  f"PayU txn: {txn_id} | Amount: Rs{amount}",
-                
+                "status":        "paid",
+                "special_notes": f"PayU txn: {txn_id} | Amount: Rs{amount}",
             }
         }
         try:
@@ -258,9 +239,8 @@ class HubSpotExtractor:
         )
         payload = {
             "properties": {
-                "status": "link_sent",
-                "special_notes":  f"Payment link: {payment_link} | Order: {order_id}",
-                
+                "status":        "link_sent",
+                "special_notes": f"Payment link: {payment_link} | Order: {order_id}",
             }
         }
         try:
@@ -283,14 +263,16 @@ def hubspot_items_to_bill_items(items: list[dict]):
     """
     Convert HubSpot items list to BillItem objects for BillGenerator.
     Import BillItem lazily to avoid circular imports.
+
+    Price priority: MENU (current catalog) > item's stored unit_price > 0
     """
     from .models import BillItem
     result = []
     for item in items:
         name     = item["name"]
         quantity = item["quantity"]
-        # Prefer price from HubSpot, fall back to MENU lookup
-        price    = item.get("unit_price") or MENU.get(name, 0.0)
+        # ✅ FIX: catalog price wins over any stale price stored in HubSpot
+        price    = MENU.get(name) or item.get("unit_price") or 0.0
         result.append(BillItem(
             name=name,
             quantity=quantity,
