@@ -1,8 +1,11 @@
 """
-taxi_worker.py — Hotel Taxi Worker v4
+taxi_worker.py — Hotel Taxi Worker v5
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Stateless booking worker.
-Sends SMS via MSG91 OTP API and confirmation email via SendGrid.
+- Driver fetched from HubSpot CRM (round-robin)
+- SMS to guest via MSG91 OTP API
+- SMS to driver via MSG91 OTP API
+- Confirmation email to guest via SendGrid
 
 Environment variables (.env):
   MSG91_AUTH_KEY          - MSG91 auth key
@@ -10,15 +13,15 @@ Environment variables (.env):
   MSG91_TEMPLATE_ID_GUEST - MSG91 OTP template ID
   SENDGRID_API_KEY        - SendGrid API key (starts with SG.)
   SENDGRID_FROM_EMAIL     - Verified sender email in SendGrid
+  HUBSPOT_DRIVER_OBJECT_TYPE - HubSpot Driver custom object type ID
 """
 
 import os
 import uuid
+import itertools
 import logging
 from dataclasses import dataclass
 from typing import Optional, List
-import itertools
-
 
 import requests
 from dotenv import load_dotenv
@@ -36,15 +39,37 @@ MSG91_TMPL_GUEST    = os.getenv("MSG91_TEMPLATE_ID_GUEST", "")
 SENDGRID_API_KEY    = os.getenv("SENDGRID_API_KEY", "")
 SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "")
 
-# ── Driver pool ────────────────────────────────────────────────────────────────
+# ── Round-robin driver state ───────────────────────────────────────────────────
 
-DRIVER_POOL: List[dict] = [
-    {"name": "Rajesh Kumar", "phone": "9123456789", "vehicle": "KA 01 AB 1234"},
-    {"name": "Suresh Patil", "phone": "9234567890", "vehicle": "KA 02 CD 5678"},
-    {"name": "Mohan Das",    "phone": "9345678901", "vehicle": "KA 03 EF 9012"},
-]
-_driver_cycle = itertools.cycle(DRIVER_POOL)  
-driver = next(_driver_cycle) 
+_driver_cycle: Optional[itertools.cycle] = None
+_driver_count: int = 0
+
+
+def _get_next_driver() -> Optional[dict]:
+    """Fetch available drivers from HubSpot CRM and return next one (round-robin)."""
+    global _driver_cycle, _driver_count
+
+    # Import here to avoid circular imports
+    from src.taxi.hubspot_client import fetch_available_drivers
+
+    drivers = fetch_available_drivers()
+
+    if not drivers:
+        log.warning("No available drivers in CRM — cannot assign driver")
+        return None
+
+    # Rebuild cycle only if driver count changed
+    if len(drivers) != _driver_count:
+        _driver_count = len(drivers)
+        _driver_cycle = itertools.cycle(drivers)
+        log.info(f"Driver pool refreshed from CRM: {_driver_count} drivers available")
+
+    driver = next(_driver_cycle)
+    return {
+        "name":    driver.driver_name    or "Unknown Driver",
+        "phone":   driver.phone          or "",
+        "vehicle": driver.vehicle_number or "Unknown Vehicle",
+    }
 
 
 # ── Guest data model ───────────────────────────────────────────────────────────
@@ -64,41 +89,36 @@ class GuestData:
 
 @dataclass
 class BookingResult:
-    success:     bool
-    booking_id:  Optional[str]  = None
-    driver:      Optional[dict] = None
-    sms_sent:    bool           = False
-    email_sent:  bool           = False
-    message:     str            = ""
+    success:         bool
+    booking_id:      Optional[str]  = None
+    driver:          Optional[dict] = None
+    sms_sent:        bool           = False
+    email_sent:      bool           = False
+    driver_sms_sent: bool           = False
+    message:         str            = ""
 
 
-# ── MSG91 OTP SMS ──────────────────────────────────────────────────────────────
+# ── MSG91 OTP SMS — Guest ──────────────────────────────────────────────────────
 
 def send_confirmation_sms(booking_id: str, guest: GuestData, driver: dict) -> bool:
-    """Send SMS via MSG91 OTP API."""
+    """Send booking confirmation SMS to guest via MSG91 OTP API."""
     import random
     if not MSG91_AUTH_KEY or not MSG91_TMPL_GUEST:
-        log.warning("MSG91 credentials not set — skipping SMS")
+        log.warning("MSG91 credentials not set — skipping guest SMS")
         return False
 
-    # Normalize phone — remove any existing country code
     phone = guest.guest_phone.replace("+91", "").replace(" ", "").strip()
     if phone.startswith("91") and len(phone) == 12:
         phone = phone[2:]
 
-    # MSG91 OTP must be numeric only — generate 6 digit numeric code for SMS
     numeric_otp = str(random.randint(100000, 999999))
 
-    # Per MSG91 docs: template_id, mobile, authkey go in URL params
-    # OTP variable goes in JSON body as ##otp## param
     url = f"https://control.msg91.com/api/v5/otp?template_id={MSG91_TMPL_GUEST}&mobile=91{phone}&authkey={MSG91_AUTH_KEY}"
     headers = {
         "content-type": "application/json",
         "Content-Type": "application/JSON",
     }
-    payload = {
-        "otp": numeric_otp,
-    }
+    payload = {"otp": numeric_otp}
 
     try:
         r    = requests.post(url, json=payload, headers=headers, timeout=10)
@@ -111,14 +131,58 @@ def send_confirmation_sms(booking_id: str, guest: GuestData, driver: dict) -> bo
         log.error(f"MSG91 error: {data}")
         return False
     except Exception as e:
-        log.error(f"MSG91 failed: {e}")
+        log.error(f"MSG91 guest SMS failed: {e}")
+        return False
+
+
+# ── MSG91 OTP SMS — Driver ─────────────────────────────────────────────────────
+
+def send_driver_sms(booking_id: str, guest: GuestData, driver: dict) -> bool:
+    """Send taxi request notification SMS to driver via MSG91 OTP API."""
+    import random
+    if not MSG91_AUTH_KEY or not MSG91_TMPL_GUEST:
+        log.warning("MSG91 credentials not set — skipping driver SMS")
+        return False
+
+    if not driver.get("phone"):
+        log.warning("Driver has no phone number — skipping driver SMS")
+        return False
+
+    phone = driver["phone"].replace("+91", "").replace(" ", "").strip()
+    if phone.startswith("91") and len(phone) == 12:
+        phone = phone[2:]
+
+    numeric_otp = str(random.randint(100000, 999999))
+
+    url = f"https://control.msg91.com/api/v5/otp?template_id={MSG91_TMPL_GUEST}&mobile=91{phone}&authkey={MSG91_AUTH_KEY}"
+    headers = {
+        "content-type": "application/json",
+        "Content-Type": "application/JSON",
+    }
+    payload = {"otp": numeric_otp}
+
+    try:
+        r    = requests.post(url, json=payload, headers=headers, timeout=10)
+        data = r.json()
+        log.info(f"Driver SMS MSG91 response: {data}")
+        if data.get("type") == "success":
+            log.info(
+                f"Driver SMS sent → {phone} | Booking {booking_id} | "
+                f"Guest: {guest.guest_name} | Room: {guest.room_number} | "
+                f"To: {guest.destination} | At: {guest.pickup_time}"
+            )
+            return True
+        log.error(f"MSG91 driver SMS error: {data}")
+        return False
+    except Exception as e:
+        log.error(f"MSG91 driver SMS failed: {e}")
         return False
 
 
 # ── SendGrid Email ─────────────────────────────────────────────────────────────
 
 def send_confirmation_email(booking_id: str, guest: GuestData, driver: dict) -> bool:
-    """Send booking confirmation email via SendGrid."""
+    """Send booking confirmation email to guest via SendGrid."""
     if not SENDGRID_API_KEY:
         log.warning("SENDGRID_API_KEY not set — skipping email")
         return False
@@ -188,11 +252,16 @@ Grand View Hotel
 # ── TaxiWorker ─────────────────────────────────────────────────────────────────
 
 class TaxiWorker:
-    """Stateless worker. Sends SMS + Email on booking."""
+    """Stateless worker. Fetches driver from CRM. Sends SMS to guest + driver. Sends email to guest."""
 
     def book(self, guest: GuestData) -> BookingResult:
         booking_id = str(uuid.uuid4())[:8].upper()
-        driver     = DRIVER_POOL[0]
+
+        # ── Fetch driver from HubSpot CRM (round-robin) ──────────────────────
+        driver = _get_next_driver()
+        if not driver:
+            log.error("No drivers available in CRM — booking failed")
+            return BookingResult(success=False, message="No drivers available")
 
         log.info(
             f"[{booking_id}] "
@@ -202,21 +271,30 @@ class TaxiWorker:
             f"Driver: {driver['name']}"
         )
 
-        sms_ok   = send_confirmation_sms(booking_id, guest, driver)
+        # ── Send guest SMS ────────────────────────────────────────────────────
+        sms_ok = send_confirmation_sms(booking_id, guest, driver)
+
+        # ── Send email to guest ───────────────────────────────────────────────
         email_ok = send_confirmation_email(booking_id, guest, driver)
 
+        # ── Send driver SMS ───────────────────────────────────────────────────
+        driver_sms_ok = send_driver_sms(booking_id, guest, driver)
+        log.info(f"Driver SMS sent: {driver_sms_ok} → {driver['phone']}")
+
         notifications = []
-        if sms_ok:   notifications.append(f"SMS to {guest.guest_phone}")
-        if email_ok: notifications.append(f"email to {guest.guest_email}")
+        if sms_ok:        notifications.append(f"SMS to {guest.guest_phone}")
+        if email_ok:      notifications.append(f"email to {guest.guest_email}")
+        if driver_sms_ok: notifications.append(f"driver SMS to {driver['phone']}")
         notif_text = " and ".join(notifications) if notifications else "no notifications sent"
 
         return BookingResult(
-            success    = True,
-            booking_id = booking_id,
-            driver     = driver,
-            sms_sent   = sms_ok,
-            email_sent = email_ok,
-            message    = (
+            success         = True,
+            booking_id      = booking_id,
+            driver          = driver,
+            sms_sent        = sms_ok,
+            email_sent      = email_ok,
+            driver_sms_sent = driver_sms_ok,
+            message         = (
                 f"Your taxi is confirmed! "
                 f"Driver {driver['name']} will pick you up from "
                 f"{guest.pickup_location} at {guest.pickup_time}. "

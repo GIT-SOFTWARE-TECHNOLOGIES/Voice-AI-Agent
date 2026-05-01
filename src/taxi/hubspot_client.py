@@ -270,4 +270,56 @@ def update_taxi_status(hubspot_id: str, status: str, booking_id: Optional[str] =
         log.error(f"update_taxi_status failed: {e}")
         return False
 
+# ── Driver object ──────────────────────────────────────────────────────────────
+
+DRIVER_FETCH_PROPERTIES = ["driver_name", "phone", "vehicle_number", "status"]
+
+
+@dataclass
+class DriverRecord:
+    hubspot_id:     str
+    driver_name:    Optional[str] = None
+    phone:          Optional[str] = None
+    vehicle_number: Optional[str] = None
+    status:         Optional[str] = None
+
+
+def fetch_available_drivers() -> List[DriverRecord]:
+    """Fetch all available drivers from HubSpot Driver object."""
+    driver_object_type = os.getenv("HUBSPOT_DRIVER_OBJECT_TYPE", "")
+
+    if not HUBSPOT_API_KEY:
+        log.warning("HUBSPOT_API_KEY not set")
+        return []
+    if not driver_object_type:
+        log.warning("HUBSPOT_DRIVER_OBJECT_TYPE not set — skipping driver fetch")
+        return []
+
+    url  = f"{HUBSPOT_BASE_URL}/crm/v3/objects/{driver_object_type}/search"
+    body = {
+        "filterGroups": [
+            {"filters": [{"propertyName": "status", "operator": "EQ", "value": "available"}]}
+        ],
+        "properties": DRIVER_FETCH_PROPERTIES,
+        "limit": 50,
+    }
+    try:
+        r = requests.post(url, json=body, headers=HEADERS(), timeout=10)
+        r.raise_for_status()
+        results = r.json().get("results", [])
+        drivers = []
+        for rec in results:
+            props = rec.get("properties", {})
+            drivers.append(DriverRecord(
+                hubspot_id     = rec["id"],
+                driver_name    = props.get("driver_name") or None,
+                phone          = props.get("phone") or None,
+                vehicle_number = props.get("vehicle_number") or None,
+                status         = props.get("status") or None,
+            ))
+        log.info(f"HubSpot: found {len(drivers)} available drivers")
+        return drivers
+    except Exception as e:
+        log.error(f"fetch_available_drivers failed: {e}")
+        return []
         
